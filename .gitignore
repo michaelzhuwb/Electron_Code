@@ -1,0 +1,9 @@
+node_modules/
+dist/
+dist-electron/
+release/
+*.db
+*.pyc
+__pycache__/
+.env
+.vscode/

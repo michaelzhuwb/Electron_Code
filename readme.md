@@ -1,0 +1,1 @@
+使用 electron实现客户端，配合python作为后台提供api，数据库使用sqlite

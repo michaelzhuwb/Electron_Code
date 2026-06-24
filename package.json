@@ -1,0 +1,44 @@
+{
+  "name": "client-app",
+  "version": "0.1.0",
+  "private": true,
+  "main": "src-electron/main.js",
+  "scripts": {
+    "dev:python": "cd backend && python -m uvicorn main:app --port 18000 --host 127.0.0.1 --reload",
+    "dev:fe": "concurrently -k \"npm run dev:frontend\" \"npm run dev:electron\"",
+    "dev:frontend": "cd frontend && npm run dev",
+    "dev:electron": "wait-on http://localhost:5173 && node src-electron/start-electron.js",
+    "dev": "concurrently -k \"npm run dev:python\" \"npm run dev:frontend\" \"npm run dev:electron\"",
+    "build": "npm run build:frontend",
+    "build:frontend": "cd frontend && npm run build",
+    "electron:build": "npm run build && electron-builder"
+  },
+  "devDependencies": {
+    "concurrently": "^9.0.0",
+    "cross-env": "^10.1.0",
+    "electron": "^28.3.3",
+    "electron-builder": "^25.0.0",
+    "typescript": "^5.5.0",
+    "vite": "^5.4.0",
+    "wait-on": "^8.0.0"
+  },
+  "build": {
+    "appId": "com.client.app",
+    "productName": "Client App",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "src-electron/**/*",
+      "frontend/dist/**/*"
+    ],
+    "win": {
+      "target": "nsis"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": true,
+      "allowToChangeInstallationDirectory": true
+    }
+  }
+}
