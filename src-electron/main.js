@@ -38,16 +38,12 @@ function createWindow() {
   // 默认开启调试面板（底部位置）
   mainWindow.webContents.openDevTools({ mode: 'bottom' });
 
-  // Ctrl+Shift+I 快捷键切换调试面板
-  mainWindow.webContents.on('before-input-event', (event, input) => {
-    // 用 toLowerCase 兼容大小写状态
-    if (input.key.toLowerCase() === 'i' && input.ctrl && input.shift) {
-      if (mainWindow.webContents.isDevToolsOpened()) {
-        mainWindow.webContents.closeDevTools();
-      } else {
-        mainWindow.webContents.openDevTools({ mode: 'bottom' });
-      }
-      event.preventDefault();
+  // 注册全局快捷键：Ctrl+Shift+I 切换调试面板
+  globalShortcut.register('CommandOrControl+Shift+I', () => {
+    if (mainWindow.webContents.isDevToolsOpened()) {
+      mainWindow.webContents.closeDevTools();
+    } else {
+      mainWindow.webContents.openDevTools({ mode: 'bottom' });
     }
   });
 
@@ -63,6 +59,8 @@ app.whenReady().then(() => {
 
 // 所有窗口关闭时退出（macOS 除外）
 app.on('window-all-closed', () => {
+  // 卸载所有全局快捷键
+  globalShortcut.unregisterAll();
   if (process.platform !== 'darwin') {
     app.quit();
   }

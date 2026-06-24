@@ -31,11 +31,12 @@ from routers.stock import init_mock_data as init_mock_data_stock
 from routers.stock_m import router as stock_m_router
 from routers.stock_m import init_mock_data as init_mock_data_stock_m
 from routers.chat import router as chat_router
+from routers.until import router as until_router
 
 app.include_router(stock_router)      # /api/stocks/*  股票查询
 app.include_router(stock_m_router)    # /api/stock-m/* 备选标的
 app.include_router(chat_router)         # /api/chat/*    AI 助手
-
+app.include_router(until_router)    # 功能工具
 
 # 启动时执行：创建数据库表 + 插入示例数据
 @app.on_event("startup")

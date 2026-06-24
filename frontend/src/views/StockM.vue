@@ -21,6 +21,7 @@
         <el-form-item>
           <el-button type="primary" @click="handleFilter">查询</el-button>
           <el-button @click="resetFilter">重置</el-button>
+          <el-button @click="until_t">测试接口</el-button>
         </el-form-item>
       </el-form>
     </el-card>
@@ -87,6 +88,7 @@
 import { ref, onMounted } from 'vue';
 import { getStockM, getStockMDates, getStockMTags } from '@/api/stock_m';
 import type { StockMItem } from '@/api/stock_m';
+import { until_test } from '@/api/untils';
 
 // 表格数据
 const tableData = ref<StockMItem[]>([]);
@@ -117,6 +119,12 @@ function changeClass(val: string) {
   if (val.startsWith('-')) return 'down';
   return '';
 }
+
+// 测试接口
+async function until_t(params:string) {
+  const res = await until_test({code_date:'2026-06-22'})
+}
+
 
 /** 获取所有可选的选股日期 */
 async function loadDates() {
