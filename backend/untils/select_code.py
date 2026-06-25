@@ -1,47 +1,11 @@
 import akshare as ak
 import pandas as pd
-import datetime
-import chinese_calendar
-import calendar
+from .trading_time import get_T
 import time
 import requests
 import re
 from lxml import etree
 global ZJJE
-# 交易日历
-def trading_days(year=None):
-    # 默认当前年交易日历
-    if not year:
-        year = datetime.datetime.now().year
-    year = int(year)
-    start_time = datetime.date(year, 1, 1)  # 指定开始时间
-    endDays = calendar.monthrange(year,12)[-1]
-    end_time = datetime.date(year, 12, endDays)   # 指定结束时间
-    workdays = pd.DataFrame(chinese_calendar.get_workdays(start_time,end_time)) # 工作日
-    workdays = list(map(lambda x:x.strftime("%Y%m%d"),workdays.loc[:,0]))
-    trading_days = [_ for _ in  workdays if datetime.date(int(_[:4]), 
-                            int(_[4:6]), int(_[6:8])).weekday()<5] 
-    return trading_days
-# 获取 T+N交易日
-def get_T(times,date=None):
-  # 获取t+times t+1 交易日期
-    _days = 1 if times>0 else -1
-    flag = abs(times)
-    if times == 0:
-        return datetime.datetime.now().strftime("%Y%m%d")
-        raise ValueError("T+N 日不等于0 !")
-
-    if not date:
-        date = datetime.datetime.now()
-    while flag:
-        date += datetime.timedelta(days=_days)
-        if date.weekday() < 5:# 属于周一到周五
-            workdays = trading_days(date.year)
-            if date.strftime("%Y%m%d") in workdays:# 属于工作日
-                flag = flag -1
-    return date.strftime("%Y%m%d")
-
-
 
 def read_stock_list(filepath: str = r"C:\Users\lenovo\Desktop\Table.xls"):
     """
@@ -78,7 +42,7 @@ def get_margin_and_flow(date: str, prev_date: str):
     sz_today = ak.stock_margin_detail_szse(date=date)
     print(f"获取深交所 {prev_date} 两融数据...")
     sz_prev = ak.stock_margin_detail_szse(date=prev_date)
-
+    
     # 统一列名
     for df in [sse_today, sse_prev, sz_today, sz_prev]:
         if "标的证券代码" in df.columns:
@@ -144,60 +108,6 @@ def get_stock_hist_price(symbol: str, date: str, prev_date: str, market: str = N
         print(f"  [警告] {symbol} 获取历史数据失败: {e}")
     return {"股票代码": symbol, "涨跌幅": None}
 
-
-def get_main_force_flow(stock_code: str, market: str = None):
-    global ZJJE
-    """
-    获取单只股票最新的主力净流入数据。
-    使用东方财富 API，通过复用 Session 连接，单位：万元。
-
-    参数:
-        stock_code: 股票代码，如 "000001"
-        session:    requests.Session 复用连接
-        market:     市场代码，"sh" 或 "sz"，None 则自动判断
-
-    返回:
-        float: 主力净流入-净额（万元）
-    """
-    global ZJJE
-    df = ZJJE[ZJJE["股票代码"] == stock_code]
-    if not df.empty:
-        parts = df.iloc[0]["净额"]
-        return parts
-        # net_inflow = float(parts) / 10000  # 转万元
-        # return round(net_inflow, 2)
-    else:
-        return None
-    # if market is None:
-    #     market = "sh" if stock_code.startswith(("5", "6")) else "sz"
-
-    # url = "https://push2his.eastmoney.com/api/qt/stock/fflow/daykline/get"
-    # sec_id = f"{1 if market == 'sh' else 0}.{stock_code}"
-    # headers = {
-    #     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-    #     "Referer": "https://data.eastmoney.com/",
-    #     "Accept": "application/json, text/plain, */*",
-    # }
-
-    # for attempt in range(3):
-    #     try:
-    #         resp = session.get(url, params={
-    #             "secid": sec_id,
-    #             "fields1": "f1,f2,f3,f7",
-    #             "fields2": "f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61",
-    #             "klt": "101",
-    #             "lmt": "1",
-    #         }, headers=headers, timeout=10)
-    #         data = resp.json()
-    #         klines = data.get("data", {}).get("klines", [])
-    #         if klines:
-    #             parts = klines[0].split(",")
-    #             net_inflow = float(parts[3]) / 10000  # 转万元
-    #             return round(net_inflow, 2)
-    #     except Exception as e:
-    #         print(f"  [警告] {stock_code} 尝试 {attempt + 1}/3 失败: {e}")
-    #         time.sleep(2)
-    # return None
 # ak.stock_individual_fund_flow(stock="600094", market="sh")
 def stock_individual_fund_flow(
     stock: str = "600094", market: str = "sh"

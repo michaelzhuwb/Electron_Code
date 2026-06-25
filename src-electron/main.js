@@ -3,7 +3,7 @@
  * - 创建无边框窗口
  * - 开发环境加载 Vite 开发服务器，生产环境加载打包后的文件
  */
-const { app, BrowserWindow, Menu, globalShortcut } = require('electron');
+const { app, BrowserWindow, Menu, globalShortcut, ipcMain } = require('electron');
 
 // 隐藏默认菜单栏（File/Edit/View）
 Menu.setApplicationMenu(null);
@@ -21,6 +21,8 @@ function createWindow() {
     height: 800,
     minWidth: 800,
     minHeight: 600,
+    frame: false,          // 隐藏原生标题栏，使用自定义
+    titleBarStyle: 'hidden',  // macOS 专用，隐藏标题栏
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,   // 启用上下文隔离（安全）
@@ -45,6 +47,33 @@ function createWindow() {
     } else {
       mainWindow.webContents.openDevTools({ mode: 'bottom' });
     }
+  });
+
+  // 窗口控制 IPC 通信
+  ipcMain.on('minimize-window', () => {
+    mainWindow?.minimize();
+  });
+  ipcMain.on('maximize-window', () => {
+    if (mainWindow.isMaximized()) {
+      mainWindow.unmaximize();
+    } else {
+      mainWindow.maximize();
+    }
+  });
+  ipcMain.on('close-window', () => {
+    mainWindow?.close();
+  });
+  ipcMain.handle('is-maximized', () => {
+    return mainWindow?.isMaximized() ?? false;
+  });
+  ipcMain.on('start-dragging', (e) => {
+    // 用于标题栏拖拽区域
+    if (e.sender.isDestroyed()) return;
+    const bounds = e.sender.getWebContents().getOSChunkSize();
+    mainWindow?.setPosition(
+      mainWindow.getPosition()[0],
+      mainWindow.getPosition()[1]
+    );
   });
 
   mainWindow.on('closed', () => {

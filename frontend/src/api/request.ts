@@ -3,7 +3,7 @@
  * - 所有 API 请求会经过此实例发出
  * - 响应拦截器统一处理错误提示和错误抛出
  */
-import axios from 'axios';
+import axios, { AxiosRequestConfig } from 'axios';
 import { ElMessage } from 'element-plus';
 import type { ApiResponse } from '@/types';
 
@@ -13,6 +13,20 @@ const request = axios.create({
   baseURL: import.meta.env.DEV ? '/api' : 'http://127.0.0.1:18000/api',
   timeout: 60000,  // 聊天接口需要更长的超时时间
 });
+
+
+// 请求拦截器：在这里读取自定义配置
+request.interceptors.request.use((config) => {
+  // 读取你传进来的自定义 title
+  // config == >请求的对象{}
+  const title = (config as any).title  // == config.title, config as any是让ts类型不报错
+  if (title) {
+    console.log('当前接口标识：', title)
+    // 你可以做业务逻辑：日志、loading控制、特殊header、鉴权判断等
+  }
+
+  return config
+})
 
 // 响应拦截器：统一处理错误提示
 request.interceptors.response.use(

@@ -122,7 +122,7 @@ function changeClass(val: string) {
 
 // 测试接口
 async function until_t(params:string) {
-  const res = await until_test({code_date:'2026-06-22'})
+  const res = await until_test({code:'002049',code_date:'2026-06-22'})
 }
 
 
