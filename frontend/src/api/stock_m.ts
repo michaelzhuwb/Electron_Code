@@ -43,3 +43,63 @@ export const getStockMDates = () => {
 export const getStockMTags = () => {
   return request.get('/stock-m/tags');
 };
+
+/**
+ * 上传 Excel 批量导入备选标的（异步，返回 task_id）
+ * @param file Excel 文件
+ * @param codeDate 选股日期，空则用当天
+ */
+export const uploadStockMExcel = (file: File, codeDate?: string) => {
+  const formData = new FormData();
+  formData.append('file', file);
+  const params: Record<string, string> = {};
+  if (codeDate) params.code_date = codeDate;
+  return request.post('/stock-m/upload', formData, {
+    params,
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+};
+
+/**
+ * 查询导入任务状态
+ */
+export const getUploadTaskStatus = (taskId: string) => {
+  return request.get(`/stock-m/task/${taskId}`);
+};
+
+/**
+ * 更新备选标的的标签/形态
+ */
+export const updateStockM = (params: {
+  code_date: string;
+  code: string;
+  flag?: string;
+  code_type?: string;
+}) => {
+  return request.patch('/stock-m/update', null, { params });
+};
+
+/**
+ * 保存单条查询记录到备选标的
+ */
+export const saveToStockM = (params: {
+  code_date: string;
+  code: string;
+  name?: string;
+  change_rate?: string;
+  major_flow?: string;
+  extra_large_flow?: string;
+  large_flow?: string;
+  rq_margin_trading?: string;
+  flag?: string;
+  code_type?: string;
+}) => {
+  return request.post('/stock-m/save', null, { params });
+};
+
+/**
+ * 删除备选标的记录
+ */
+export const deleteStockM = (code_date: string, code: string) => {
+  return request.delete(`/stock-m/${code_date}/${code}`);
+};
