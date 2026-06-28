@@ -141,7 +141,7 @@
               <el-card shadow="hover">
                 <template #header>涨跌停统计</template>
                 <el-row :gutter="20">
-                  <el-col :span="6" v-for="item in zdtItems" :key="item.label">
+                  <el-col :span="12" v-for="item in zdtItems" :key="item.label">
                     <div class="stat-item">
                       <div class="stat-label">{{ item.label }}</div>
                       <div class="stat-value" :class="item.cls">{{ store.marketOverview[item.key] }}</div>
@@ -150,7 +150,7 @@
                 </el-row>
               </el-card>
             </el-col>
-
+  
             <!-- 涨跌幅分布 -->
             <el-col :span="16">
               <el-card shadow="hover">
