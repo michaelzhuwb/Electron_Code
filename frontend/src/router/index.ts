@@ -36,6 +36,13 @@ const router = createRouter({
       component: () => import('@/views/StockM.vue'),
       meta: { title: '备选标的' },
     },
+    // 数据分析：市场概况 + 两融-主力数据
+    {
+      path: '/data-analysis',
+      name: 'DataAnalysis',
+      component: () => import('@/views/DataAnalysis.vue'),
+      meta: { title: '数据分析' },
+    },
   ],
 });
 

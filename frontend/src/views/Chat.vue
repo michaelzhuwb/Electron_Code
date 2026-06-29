@@ -74,6 +74,15 @@
           @change="handleFileSelect"
         />
         <el-button :icon="Upload" circle plain @click="fileInputRef?.click()" title="上传文件" />
+        <!-- Agent 模式开关 -->
+        <el-switch
+          v-model="agentMode"
+          size="small"
+          inline-prompt
+          active-text="Agent"
+          inactive-text=""
+          class="agent-switch"
+        />
       </div>
       <el-input
         v-model="inputText"
@@ -94,12 +103,15 @@ import { ref, nextTick, watch, onMounted } from 'vue';
 import { ChatDotRound, User, Loading, Promotion, Upload, Document, Close } from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
 import { marked } from 'marked';
-import { sendChat, sendChatStream, uploadFile } from '@/api/chat';
+import { sendChat, sendChatStream, uploadFile, agentChat } from '@/api/chat';
 import type { ChatMessage, UploadedFile } from '@/api/chat';
 
 // 消息列表和用户输入
 const messages = ref<ChatMessage[]>([]);
 const inputText = ref('');
+
+// Agent 模式开关（支持工具调用）
+const agentMode = ref(true);
 
 // 加载状态
 const loading = ref(false);      // 正在请求
@@ -202,13 +214,13 @@ const removeFile = (idx: number) => {
   pendingFiles.value.splice(idx, 1);
 };
 
-/** 发送消息：组装用户消息 + 流式请求 DeepSeek */
+/** 发送消息：根据 Agent 模式选择不同处理流程 */
 const sendMessage = async () => {
   const text = inputText.value.trim();
   const hasFiles = pendingFiles.value.length > 0;
   if (!text && !hasFiles || loading.value || uploading.value) return;
 
-  // 组装消息内容：有文件时构建多模态内容块
+  // 组装消息内容
   let content: string | any[];
   if (hasFiles) {
     content = [];
@@ -216,7 +228,6 @@ const sendMessage = async () => {
     const textFiles = pendingFiles.value.filter(f => f.is_text && f.text);
 
     if (textFiles.length > 0) {
-      // 文本文件内容拼接到消息中
       const fileText = textFiles.map(f => `[${f.name}]\n${f.text}`).join('\n\n');
       content.push({ type: 'text', text: text ? `${text}\n\n${fileText}` : fileText });
     } else {
@@ -243,47 +254,77 @@ const sendMessage = async () => {
   streamContent.value = '';
 
   try {
-    const messagesData: ChatMessage[] = [...messages.value];
-    const response = await sendChatStream(messagesData);
+    if (agentMode.value) {
+      // ============ Agent 模式：调用 /chat/agent 端点 ============
+      // 构建历史消息列表（只保留纯文本，agent 不支持多模态）
+      const history = messages.value.slice(0, -1).map(m => ({
+        role: m.role,
+        content: typeof m.content === 'string' ? m.content : (m.content as any[]).map(c => c.text || '').join('\n'),
+      })) as ChatMessage[];
 
-    if (!response.ok) {
-      const err = await response.text();
-      throw new Error(err || `HTTP ${response.status}`);
-    }
+      const currentMsg = typeof content === 'string' ? content : (content as any[]).map(c => c.text || '').join('\n');
+      const res = await agentChat(currentMsg, history);
+      const data = res.data.data;
 
-    // 通过 ReadableStream 逐块读取 SSE 响应
-    const reader = response.body?.getReader();
-    if (!reader) throw new Error('无法读取流');
+      // 如果有工具调用结果，拼接工具信息到回复前面
+      if (data.tool_calls) {
+        const toolInfo = data.tool_calls.map((tc: any) =>
+          `[调用工具: ${tc.name}] 参数: ${JSON.stringify(tc.arguments)}`
+        ).join('\n');
+        streamContent.value = `**工具调用：**\n\`\`\`json\n${toolInfo}\n\`\`\`\n\n${data.content}`;
+      } else {
+        streamContent.value = data.content;
+      }
 
-    const decoder = new TextDecoder();
-    let buffer = '';
+      messages.value.push({
+        role: 'assistant',
+        content: streamContent.value,
+        usage: data.usage,
+      });
+    } else {
+      // ============ 普通模式：流式对话 ============
+      const messagesData: ChatMessage[] = [...messages.value];
+      const response = await sendChatStream(messagesData);
 
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
+      if (!response.ok) {
+        const err = await response.text();
+        throw new Error(err || `HTTP ${response.status}`);
+      }
 
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split('\n');
-      buffer = lines.pop() || '';
+      // 通过 ReadableStream 逐块读取 SSE 响应
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error('无法读取流');
 
-      for (const line of lines) {
-        if (line.startsWith('data: ')) {
-          const data = line.slice(6);
-          if (data === '[DONE]') break;       // 流结束标记
-          if (data.startsWith('[ERROR]')) {    // 错误信息
-            streamContent.value += '\n' + data.slice(7);
-          } else {
-            streamContent.value += data;       // 逐块追加内容
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const data = line.slice(6);
+            if (data === '[DONE]') break;
+            if (data.startsWith('[ERROR]')) {
+              streamContent.value += '\n' + data.slice(7);
+            } else {
+              streamContent.value += data;
+            }
           }
         }
       }
-    }
 
-    // 流式输出完成，将结果加入消息列表
-    messages.value.push({
-      role: 'assistant',
-      content: streamContent.value,
-    });
+      // 流式输出完成，将结果加入消息列表
+      messages.value.push({
+        role: 'assistant',
+        content: streamContent.value,
+      });
+    }
   } catch (err: any) {
     messages.value.push({
       role: 'assistant',

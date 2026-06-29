@@ -76,3 +76,19 @@ export const uploadFile = (file: File) => {
     headers: { 'Content-Type': 'multipart/form-data' },
   });
 };
+
+/**
+ * Agent 对话：支持工具调用（Function Calling）
+ * 三步流程：用户消息 → LLM判断调用工具 → 执行工具 → LLM生成回复
+ */
+export const agentChat = (
+  message: string,
+  history: ChatMessage[],
+  opts?: { temperature?: number; max_tokens?: number }
+) => {
+  return request.post('/chat/agent', {
+    message,
+    history,
+    ...opts,
+  });
+};

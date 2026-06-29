@@ -73,9 +73,8 @@ def market_overview():
     op_dx = True    # 低吸
     op_fb = True    # 反包追涨
     op_tp = True    # 突破
-    if ztzs < 1800:
+    if zdfb_info.get('znum', 0) < 1800:
         op_syx = op_fb = False
-
     suggestion = "当前可用策略："
     if _num >60:
         op_fb = op_tp = op_syx = False  # 只能低吸

@@ -2,7 +2,8 @@ import request from './request';
 
 export const until_test = (params:{
   code?:string,
-  code_date?:string
+  code_date?:string,
+  major_cookie?:string
 }) => {
   return request.get('/untils/get_code_margin',{ params });
 };

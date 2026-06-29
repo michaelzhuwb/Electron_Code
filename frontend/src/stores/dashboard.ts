@@ -24,14 +24,20 @@ export interface MarketOverview {
 }
 
 export const useDashboardStore = defineStore('dashboard', () => {
-  // 当前激活的页签（首页 / 两融数据 / 市场概况）
-  const activeTab = ref('welcome');
+  // 数据分析页签（market | margin）
+  const activeTab = ref('market');
 
   // 股票代码查询条件
   const searchCode = ref('002049');
 
   // 查询日期
   const searchDate = ref('');
+
+  // 主力数据查询 cookie（localStorage 持久化）
+  const majorCookie = ref(localStorage.getItem('majorCookie') || '');
+  watch(majorCookie, (val) => {
+    localStorage.setItem('majorCookie', val || '');
+  });
 
   // 两融数据
   const marginData = ref<MarginData | null>(null);
@@ -76,6 +82,7 @@ export const useDashboardStore = defineStore('dashboard', () => {
     activeTab,
     searchCode,
     searchDate,
+    majorCookie,
     marginData,
     marginHistory,
     savedRowCodes,

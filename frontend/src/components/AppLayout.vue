@@ -69,17 +69,17 @@
             <el-icon><HomeFilled /></el-icon>
             <span>首页</span>
           </el-menu-item>
-          <el-menu-item index="/stocks">
-            <el-icon><DataAnalysis /></el-icon>
-            <span>股票列表</span>
-          </el-menu-item>
-          <el-menu-item index="/chat">
-            <el-icon><ChatDotRound /></el-icon>
-            <span>AI 助手</span>
+          <el-menu-item index="/data-analysis">
+            <el-icon><TrendCharts /></el-icon>
+            <span>数据分析</span>
           </el-menu-item>
           <el-menu-item index="/stock-m">
             <el-icon><Document /></el-icon>
             <span>备选标的</span>
+          </el-menu-item>
+          <el-menu-item index="/chat">
+            <el-icon><Document /></el-icon>
+            <span>AI助手</span>
           </el-menu-item>
         </el-menu>
       </div>
@@ -96,7 +96,7 @@
 import { computed, ref, onMounted } from 'vue';
 import { useRoute } from 'vue-router';
 // 引入 Element Plus 图标
-import { HomeFilled, DataAnalysis, ChatDotRound, Document } from '@element-plus/icons-vue';
+import { HomeFilled, TrendCharts, Document } from '@element-plus/icons-vue';
 
 const route = useRoute();
 

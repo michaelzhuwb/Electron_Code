@@ -23,6 +23,24 @@ margin_headers = {
   'sec-ch-ua-platform': '"Windows"'
 }
 
+major_headers = {
+    'Accept': '*/*',
+    'Accept-Language': 'zh-CN,zh;q=0.9',
+    'Connection': 'keep-alive',
+    'Referer': 'https://data.eastmoney.com/zjlx/300496.html',
+    'Sec-Fetch-Dest': 'script',
+    'Sec-Fetch-Mode': 'no-cors',
+    'Sec-Fetch-Site': 'same-site',
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36',
+    'sec-ch-ua': '"Chromium";v="148", "Google Chrome";v="148", "Not/A)Brand";v="99"',
+    'sec-ch-ua-mobile': '?0',
+    'sec-ch-ua-platform': '"Windows"',
+    'Cookie': 'qgqp_b_id=56c5e11a1a70e04a97702943999870c9; fullscreengg=1; fullscreengg2=1; st_nvi=rSgBvhPJR6JAybbIqBFnAf7fc; st_si=93412285426215; st_asi=delete; nid18=01b4051cb3b054f0b083f80f3762b0e5; nid18_create_time=1782722741102; gviem=JMehTNvg-S3EUocwv3aQAfb35; gviem_create_time=1782722741102; st_pvi=96362003079374; st_sp=2026-06-29%2016%3A45%3A40; st_inirUrl=; st_sn=2; st_psi=20260629164558492-113300300815-4647508626'
+}
+
+
+
+
 # 模块级全局 session，后端启动时创建一次，所有请求复用连接池
 sess = requests.session()
 sess.headers = margin_headers
@@ -110,25 +128,10 @@ def get_major_flow(
     #     'Referer': 'https://data.eastmoney.com/',
     #     'Accept': 'application/json, text/plain, */*',
     # }
-    headers = {
-        'Accept': '*/*',
-        'Accept-Language': 'zh-CN,zh;q=0.9',
-        'Connection': 'keep-alive',
-        'Referer': 'https://data.eastmoney.com/zjlx/300496.html',
-        'Sec-Fetch-Dest': 'script',
-        'Sec-Fetch-Mode': 'no-cors',
-        'Sec-Fetch-Site': 'same-site',
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36',
-        'sec-ch-ua': '"Chromium";v="148", "Google Chrome";v="148", "Not/A)Brand";v="99"',
-        'sec-ch-ua-mobile': '?0',
-        'sec-ch-ua-platform': '"Windows"',
-        'Cookie': 'qgqp_b_id=910350466b7339e1fdb836fe87548892; st_nvi=4fwQ29fF9Bl17gHnrOaYs6ac2; nid18=0f7cefb64d36a33db2e914d8df66b3d1; nid18_create_time=1777182029600; gviem=Hc3DJD7PMqu3PhJWwDImm5571; gviem_create_time=1777182029600; qRecords=%5B%7B%22name%22%3A%22%u4F0A%u6CF0%uFF22%u80A1%22%2C%22code%22%3A%22SH900948%22%7D%5D; fullscreengg=1; fullscreengg2=1; st_si=91138196802787; st_pvi=68778873072756; st_sp=2026-01-26%2013%3A21%3A10; st_inirUrl=https%3A%2F%2Fguba.eastmoney.com%2F; st_sn=4; st_psi=20260622090033174-113300300815-0791551395; st_asi=delete'
-    }
     if cookie:
         print('### major-cookie',cookie)
-        headers['Cookie'] = cookie
-
-    r = requests.get(url, headers=headers,data={},timeout=10)
+        major_headers['Cookie'] = cookie
+    r = requests.get(url, headers=major_headers,data={},timeout=10)
     data_json = r.json()
     content_list = data_json["data"]["klines"]
     temp_df = pd.DataFrame([item.split(",") for item in content_list])

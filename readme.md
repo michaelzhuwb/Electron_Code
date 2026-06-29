@@ -2,9 +2,13 @@
 git config --global --unset http.proxy
 git config --global --unset https.proxy
 
-git config --global http.proxy http://127.0.0.1:10809
 # https 仓库也要配套设置
+git config --global http.proxy http://127.0.0.1:10809
 git config --global https.proxy http://127.0.0.1:10809
+
+# 关闭代理
+git config --global --unset http.proxy
+git config --global --unset https.proxy
 
 netstat -ano | findstr :18000
 taskkill /F /PID 13104
