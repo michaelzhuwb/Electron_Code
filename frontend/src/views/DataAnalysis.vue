@@ -122,13 +122,13 @@
               <el-table-column label="操作" width="80" fixed="right">
                 <template #default="{ row }">
                   <el-button
-                    v-if="store.savedRowCodes.includes(row.code)"
+                    v-if="isSaved(row)"
                     type="info" link size="small" disabled
                   >已入库</el-button>
                   <el-button
                     v-else
                     type="success" link size="small"
-                    :loading="savingRow === row.code"
+                    :loading="savingRow === row.code + '_' + row.tradeDate"
                     @click="handleSaveToStockM(row)"
                   >入库</el-button>
                 </template>
@@ -205,7 +205,8 @@ function changeClass(val: string) {
 
 /** 查询历史记录入库 */
 async function handleSaveToStockM(row: any) {
-  savingRow.value = row.code;
+  const rowKey = row.code + '_' + row.tradeDate;
+  savingRow.value = rowKey;
   try {
     await saveToStockM({
       code_date: row.tradeDate,
@@ -220,14 +221,19 @@ async function handleSaveToStockM(row: any) {
       code_type: '其他',
     });
     ElMessage.success('已入库');
-    if (!store.savedRowCodes.includes(row.code)) {
-      store.savedRowCodes.push(row.code);
+    if (!store.savedRowCodes.includes(rowKey)) {
+      store.savedRowCodes.push(rowKey);
     }
   } catch {
     // 已由拦截器处理
   } finally {
     savingRow.value = null;
   }
+}
+
+/** 判断历史记录是否已入库（code + tradeDate 联合唯一） */
+function isSaved(row: any) {
+  return store.savedRowCodes.includes(row.code + '_' + row.tradeDate);
 }
 
 /** 清空查询历史 */

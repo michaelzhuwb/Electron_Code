@@ -27,7 +27,7 @@ major_headers = {
     'Accept': '*/*',
     'Accept-Language': 'zh-CN,zh;q=0.9',
     'Connection': 'keep-alive',
-    'Referer': 'https://data.eastmoney.com/zjlx/300496.html',
+    'Referer': 'https://data.eastmoney.com/zjlx/601211.html',
     'Sec-Fetch-Dest': 'script',
     'Sec-Fetch-Mode': 'no-cors',
     'Sec-Fetch-Site': 'same-site',
@@ -35,7 +35,7 @@ major_headers = {
     'sec-ch-ua': '"Chromium";v="148", "Google Chrome";v="148", "Not/A)Brand";v="99"',
     'sec-ch-ua-mobile': '?0',
     'sec-ch-ua-platform': '"Windows"',
-    'Cookie': 'qgqp_b_id=56c5e11a1a70e04a97702943999870c9; fullscreengg=1; fullscreengg2=1; st_nvi=rSgBvhPJR6JAybbIqBFnAf7fc; st_si=93412285426215; st_asi=delete; nid18=01b4051cb3b054f0b083f80f3762b0e5; nid18_create_time=1782722741102; gviem=JMehTNvg-S3EUocwv3aQAfb35; gviem_create_time=1782722741102; st_pvi=96362003079374; st_sp=2026-06-29%2016%3A45%3A40; st_inirUrl=; st_sn=2; st_psi=20260629164558492-113300300815-4647508626'
+    'Cookie': 'qgqp_b_id=17d3c65bd3714c245d297df85500cc15; st_nvi=KVUtBfjXoZ8TiAD8ROJngb1fc; nid18=01b4051cb3b054f0b083f80f3762b0e5; nid18_create_time=1782722443113; gviem=3aMPl-pGr2tWrGMF-zIqBfbe9; gviem_create_time=1782722443113; fullscreengg=1; fullscreengg2=1; st_si=27379133442056; wsc_checkuser_ok=1; st_asi=delete; st_pvi=71950343209829; st_sp=2026-02-11%2018%3A56%3A52; st_inirUrl=https%3A%2F%2Fquote.eastmoney.com%2Fcenter%2Fboardlist.html; st_sn=36; st_psi=20260630171242873-113300300815-2706444891'
 }
 
 
@@ -133,7 +133,9 @@ def get_major_flow(
         major_headers['Cookie'] = cookie
     r = requests.get(url, headers=major_headers,data={},timeout=10)
     data_json = r.json()
+    print('##########datajson',data_json)
     content_list = data_json["data"]["klines"]
+
     temp_df = pd.DataFrame([item.split(",") for item in content_list])
     temp_df.columns = [
         "日期",

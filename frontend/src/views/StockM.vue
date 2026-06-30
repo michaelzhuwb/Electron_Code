@@ -7,6 +7,7 @@
         <el-form-item label="选股日期">
           <el-select v-model="store.filterCodeDate" placeholder="请选择" @change="handleFilter" style="width: 150px">
             <el-option label="最新" value="latest" />
+            <el-option label="全部" value="all" />
             <el-option v-for="d in dates" :key="d" :value="d" :label="d" />
           </el-select>
         </el-form-item>
@@ -288,7 +289,7 @@ async function fetchData() {
   loading.value = true;
   try {
     const res = await getStockM({
-      code_date: (store.filterCodeDate && store.filterCodeDate !== 'latest') ? store.filterCodeDate : undefined,
+      code_date: (store.filterCodeDate && store.filterCodeDate !== 'latest' && store.filterCodeDate !== 'all') ? store.filterCodeDate : (store.filterCodeDate === 'all' ? 'all' : undefined),
       flag: store.filterFlag || undefined,
       code: store.filterCode || undefined,
       sort_by: store.sortState.sort_by,
@@ -379,9 +380,13 @@ async function handleDelete(row: StockMItem) {
     );
     store.pagination.total = Math.max(0, store.pagination.total - 1);
     ElMessage.success('已删除');
-    // 同步清除查询历史中的入库标记
-    const idx = dashboardStore.savedRowCodes.indexOf(row.code);
-    if (idx !== -1) dashboardStore.savedRowCodes.splice(idx, 1);
+    // 同步清除查询历史中的入库标记（遍历清除所有匹配 code 的 key）
+    const code = row.code;
+    const toRemove = dashboardStore.savedRowCodes.filter(k => k.startsWith(code + '_'));
+    for (const key of toRemove) {
+      const idx = dashboardStore.savedRowCodes.indexOf(key);
+      if (idx !== -1) dashboardStore.savedRowCodes.splice(idx, 1);
+    }
   } catch {
     // 用户取消或删除失败
   }

@@ -75,11 +75,21 @@
         />
         <el-button :icon="Upload" circle plain @click="fileInputRef?.click()" title="上传文件" />
         <!-- Agent 模式开关 -->
+        <el-button :icon="RefreshRight" circle plain @click="clearChat" title="新建对话" />
         <el-switch
           v-model="agentMode"
           size="small"
           inline-prompt
           active-text="Agent"
+          inactive-text=""
+          class="agent-switch"
+        />
+        <!-- 联网搜索开关：开启后 Agent 可自动调用 search_web -->
+        <el-switch
+          v-model="enableWebSearch"
+          size="small"
+          inline-prompt
+          active-text="联网"
           inactive-text=""
           class="agent-switch"
         />
@@ -100,8 +110,8 @@
 
 <script setup lang="ts">
 import { ref, nextTick, watch, onMounted } from 'vue';
-import { ChatDotRound, User, Loading, Promotion, Upload, Document, Close } from '@element-plus/icons-vue';
-import { ElMessage } from 'element-plus';
+import { ChatDotRound, User, Loading, Promotion, Upload, Document, Close, RefreshRight } from '@element-plus/icons-vue';
+import { ElMessage, ElMessageBox } from 'element-plus';
 import { marked } from 'marked';
 import { sendChat, sendChatStream, uploadFile, agentChat } from '@/api/chat';
 import type { ChatMessage, UploadedFile } from '@/api/chat';
@@ -112,6 +122,12 @@ const inputText = ref('');
 
 // Agent 模式开关（支持工具调用）
 const agentMode = ref(true);
+
+// 联网搜索开关（开启后 Agent 可自动调用 search_web 工具，持久化到 localStorage）
+const enableWebSearch = ref(localStorage.getItem('enableWebSearch') === 'true');
+watch(enableWebSearch, (val) => {
+  localStorage.setItem('enableWebSearch', String(val));
+});
 
 // 加载状态
 const loading = ref(false);      // 正在请求
@@ -209,6 +225,22 @@ const handleFileSelect = async (e: Event) => {
   if (fileInputRef.value) fileInputRef.value.value = '';
 };
 
+/** 新建对话：清空聊天记录 */
+const clearChat = async () => {
+  try {
+    await ElMessageBox.confirm('确定要清空所有聊天记录吗？', '新建对话', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning',
+    });
+    messages.value = [];
+    localStorage.removeItem(STORAGE_KEY);
+    ElMessage.success('已清空聊天记录');
+  } catch {
+    // 用户取消
+  }
+};
+
 /** 移除待发送的文件 */
 const removeFile = (idx: number) => {
   pendingFiles.value.splice(idx, 1);
@@ -263,7 +295,7 @@ const sendMessage = async () => {
       })) as ChatMessage[];
 
       const currentMsg = typeof content === 'string' ? content : (content as any[]).map(c => c.text || '').join('\n');
-      const res = await agentChat(currentMsg, history);
+      const res = await agentChat(currentMsg, history, { enable_web_search: enableWebSearch.value });
       const data = res.data.data;
 
       // 如果有工具调用结果，拼接工具信息到回复前面

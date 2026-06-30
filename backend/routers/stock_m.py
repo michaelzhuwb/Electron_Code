@@ -133,12 +133,12 @@ def get_stock_m(
     """
     query = db.query(Stock_M)
 
-    # 未指定日期时取最新日期，否则按指定日期筛选
+    # 未指定日期时取最新日期，code_date="all" 时不按日期筛选
     if not code_date:
         latest = db.query(func.max(Stock_M.code_date)).scalar()
         if latest:
             query = query.filter(Stock_M.code_date == latest)
-    else:
+    elif code_date.lower() != 'all':
         query = query.filter(Stock_M.code_date == code_date)
 
     if flag:

@@ -84,7 +84,7 @@ export const uploadFile = (file: File) => {
 export const agentChat = (
   message: string,
   history: ChatMessage[],
-  opts?: { temperature?: number; max_tokens?: number }
+  opts?: { temperature?: number; max_tokens?: number; enable_web_search?: boolean }
 ) => {
   return request.post('/chat/agent', {
     message,

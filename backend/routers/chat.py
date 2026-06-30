@@ -1,5 +1,5 @@
 """DeepSeek AI 助手路由，支持普通对话、流式对话、文件上传、工具调用(Agent)"""
-from fastapi import APIRouter, HTTPException, UploadFile, File
+from fastapi import APIRouter, HTTPException, UploadFile, File, Body
 from pydantic import BaseModel, Field
 from typing import List, Optional, Any, Union
 from openai import OpenAI
@@ -10,7 +10,7 @@ import json
 from datetime import datetime
 
 # 导入工具注册模块（Agent 功能）
-from agent_tools.registry import get_tools_definitions, execute_tool
+from agent_tools.registry import get_tools_definitions, execute_tool, TOOLS_REGISTRY
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
 
@@ -231,9 +231,10 @@ class AgentRequest(BaseModel):
     """Agent 请求体"""
     message: str                          # 用户消息
     history: List[ChatMessage] = []       # 对话历史（不含本轮）
-    model: Optional[str] = None           # 可覆盖默认模型
+    model: Optional[str] = None            # 可覆盖默认模型
     temperature: Optional[float] = None   # 温度参数
-    max_tokens: Optional[int] = None      # 最大 token 数
+    max_tokens: Optional[int] = None       # 最大 token 数
+    enable_web_search: Optional[bool] = False  # 是否启用联网搜索工具
 
 
 @router.post("/agent")
@@ -244,19 +245,47 @@ def agent_chat(request: AgentRequest):
     """
     try:
         client = get_client()
-        tools = get_tools_definitions()
+        all_tools = get_tools_definitions()
+        # 根据开关决定是否包含 search_web 工具
+        if not request.enable_web_search:
+            all_tools = [t for t in all_tools if t["function"]["name"] != "search_web"]
 
         # ---------- 第一步：构建系统提示 + 用户消息 ----------
         today = datetime.now().strftime("%Y-%m-%d")
+        current_year = datetime.now().strftime("%Y")
         system_prompt = f"""你是一个专业的股票分析助手。你可以调用工具来查询数据。
 当前日期：{today}（请注意使用这个日期，不要使用你训练数据中的日期）
-当你需要查询数据时，请使用提供的工具。收到工具返回的结果后，用简洁自然的语言回答用户。
+
+重要规则：
+1. 查询日期时，code_date 参数必须使用 "{today}" 格式，例如查询6月26日，传入 "2026-06-26"
+   - 绝对不要使用其他年份（如2025年），即使用户只说"6月25日"也必须理解为当前年份{current_year}年
+2. 如果工具返回错误或数据不可用，请直接告知用户"该日期暂无数据，请先入库或查询其他日期"，**绝对不要编造任何数据**
+3. 如果工具返回的涨跌幅是负数，请按负数展示，不要修改数据
+4. **展示数据时必须原样引用工具返回的数值**，不要自行修改、编造或拼接不同日期的数据
+5. 工具返回的 change_rate 就是涨幅，major_flow 就是主力净流入，margin_net_buy 就是两融净买入，flag 就是标签——逐字段映射，不要搞混
+6. 如果工具返回了"中文摘要"字段，请直接引用它作为回答的核心内容
+7. **重要**：如果工具返回了 `markdown_table` 字段（Markdown 表格），必须原样展示在回答中，不要修改任何数字或格式
+8. **即使用户重复查询之前查过的股票，也必须重新调用工具**，不能只引用之前的回答
+9. 展示表格时必须包含所有列（日期、涨跌幅、主力净流入、超大单、大单、融资净买入、标签、来源），不要遗漏任何列
+
+
+重要：备选标的的标签有以下7种（从高到低排序）：
+好+ > 好 > 好- > 中+ > 中 > 中- > 差
+
+当用户说"中+以上"时，flag 参数应该传入："好+,好,好-,中+"
+当用户说"好以上"时，flag 参数应该传入："好+,好"
+当用户说"好"时，flag 参数应该传入："好"（不要扩展为其他标签）
+注意标签之间包含"+"和"-"符号，不要省略或修改。
+code_date 留空或不填表示使用最新可用日期，不要手动传入日期。
+
 可用工具：
-1. query_margin_data - 查询个股两融和主力资金数据
+1. query_margin_data - 查询个股两融和主力资金数据（单日）
 2. get_market_overview - 获取大盘涨跌停统计和涨跌幅分布
-3. query_stock_m - 查询备选标的池
-4. search_web - 联网搜索最新新闻、公告、市场动态等（当需要实时信息时必用）
-5. 如果用户的问题不需要工具就能回答，直接回答即可"""
+3. query_stock_m - 查询备选标的列表（简单查询，flag 支持逗号分隔多标签如 "好+,好,中+"）
+4. analyze_stock_m - 智能选股分析（推荐、排序时优先使用此工具，它会同时返回标的列表+市场概况）
+5. query_code_recent - 查询某只股票最近几天的两融+主力数据，缺失数据自动抓取入库（如"查300620最近三天"）
+6. search_web - 联网搜索最新新闻、公告、市场动态等（当需要实时信息时使用）
+7. 如果用户的问题不需要工具就能回答，直接回答即可"""
 
         # 构建完整消息列表：系统提示 + 历史 + 当前消息
         messages = [
@@ -273,7 +302,7 @@ def agent_chat(request: AgentRequest):
         response = client.chat.completions.create(
             model=request.model or DEEPSEEK_MODEL,
             messages=messages,
-            tools=tools,
+            tools=all_tools,
             temperature=request.temperature if request.temperature is not None else 0.5,  # 工具调用需要较低温度
             max_tokens=request.max_tokens if request.max_tokens is not None else 4096,
         )
@@ -375,3 +404,43 @@ def agent_chat(request: AgentRequest):
         raise
     except Exception as e:
         return {"code": 500, "data": None, "msg": str(e)}
+
+
+# POST /api/chat/search_web - 手动联网搜索（直接调用 Tavily）
+@router.post("/search_web")
+def search_web_endpoint(query: str = Body(..., embed=True)):
+    """手动触发联网搜索，返回 Tavily 搜索结果"""
+    try:
+        result = execute_tool("search_web", {"query": query})
+        return {"code": 200, "data": result, "msg": "ok"}
+    except Exception as e:
+        return {"code": 500, "data": None, "msg": str(e)}
+
+
+# POST /api/chat/test_query - 直接测试数据库查询（调试用）
+@router.post("/test_query")
+def test_query(code: str = Body(...), code_date: str = Body(...)):
+    """测试数据库查询，看看是否命中"""
+    from database import SessionLocal
+    from models.stock import Stock_M
+    db = SessionLocal()
+    row = db.query(Stock_M).filter(
+        Stock_M.code_date == code_date,
+        Stock_M.code == code,
+    ).first()
+    db.close()
+    if row:
+        return {
+            "found": True,
+            "code_date": row.code_date,
+            "code": row.code,
+            "name": row.name,
+            "change_rate": row.change_rate,
+            "major_flow": row.major_flow,
+            "extra_large_flow": row.extra_large_flow,
+            "large_flow": row.large_flow,
+            "rq_margin_trading": row.rq_margin_trading,
+            "flag": row.flag,
+            "code_type": row.code_type,
+        }
+    return {"found": False}
