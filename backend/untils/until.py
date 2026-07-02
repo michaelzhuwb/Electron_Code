@@ -52,6 +52,9 @@ def get_margin_flow(code='600000',m_date=None):
     root = etree.HTML(res.text)
     _name = root.xpath('//h2[@class="icon-table"]/span')[0]
     name = _name.text.strip().split(f'({code})')[-1]
+
+    # print('########name#####--',name)
+
     table = root.xpath('//table[@class="m-table"]')[0]
     head_trs = table.xpath('./thead/tr')
     row_tr0,row_tr1 = head_trs
@@ -80,6 +83,9 @@ def get_margin_flow(code='600000',m_date=None):
               for _tr in data_tr]
     df = pd.DataFrame(data=result,columns=head_titles)
     df = df[(pd.notna(df['交易时间'])) & (df['交易时间'] != '')]
+    df['交易时间'] = df['交易时间'].str.replace('-','',regex=False)
+    if m_date:
+        df = df[df['交易时间']==m_date]
     if df.empty:
         return name
     df.index = df['交易时间'].str.replace('-','',regex=False)
@@ -133,7 +139,7 @@ def get_major_flow(
         major_headers['Cookie'] = cookie
     r = requests.get(url, headers=major_headers,data={},timeout=10)
     data_json = r.json()
-    print('##########datajson',data_json)
+    # print('##########datajson',data_json)
     content_list = data_json["data"]["klines"]
 
     temp_df = pd.DataFrame([item.split(",") for item in content_list])
@@ -288,7 +294,9 @@ def judge(row):
         # 中+：1/3仓，属于试错 横盘时间要大于等于三分钟才能买入， 正常情况1/3，横盘时间超过等于10分钟的 1/2仓
         # 中：观望，横盘时间要大于等于三分钟才能买入1/4仓，横盘时间大于等于8分钟才可以买入1/3仓， 拉升好的幅度完美的 1/3仓，(一般是，拉升完美的 倾斜度不会过高，)
         # 其他空仓等待 仓位考虑横盘时间？
-        if zjjll_valid:
+        # if zjjll_valid:
+        print('###########',net_buy!=0)
+        if net_buy!=0:
             # 判断融资方向
             financing_buy = net_buy > 0   # 融资净买入
             financing_sell = net_buy < 0  # 融资净卖出

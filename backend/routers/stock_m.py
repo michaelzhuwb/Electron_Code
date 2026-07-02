@@ -264,7 +264,7 @@ async def upload_excel(
                     df_major = get_major_flow(code, m_date, '')
 
                     if df_margin is None or isinstance(df_margin, str):
-                        margin_dict = {}
+                        margin_dict = {'股票名称':df_margin}
                     else:
                         margin_dict = df_margin.to_dict()
 

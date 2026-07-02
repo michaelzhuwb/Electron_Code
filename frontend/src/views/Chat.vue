@@ -298,7 +298,7 @@ const sendMessage = async () => {
       const res = await agentChat(currentMsg, history, { enable_web_search: enableWebSearch.value });
       const data = res.data.data;
 
-      // 如果有工具调用结果，拼接工具信息到回复前面
+      // 如果有工具调用结果，拼接工具信息到回复前面（仅用于展示，不存入历史）
       if (data.tool_calls) {
         const toolInfo = data.tool_calls.map((tc: any) =>
           `[调用工具: ${tc.name}] 参数: ${JSON.stringify(tc.arguments)}`
@@ -310,7 +310,9 @@ const sendMessage = async () => {
 
       messages.value.push({
         role: 'assistant',
-        content: streamContent.value,
+        // 只保存纯文本回答到历史，不保存工具调用信息
+        // 这样下次查询时 LLM 会重新调用工具，不会跳过工具直接用旧数据
+        content: data.content,
         usage: data.usage,
       });
     } else {

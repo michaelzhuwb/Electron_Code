@@ -21,8 +21,9 @@ def get_code_margin(
     df_major = get_major_flow(code,code_date,major_cookie)   
     if type(df_margin) == str:
         margin_flow = {
-            "name":df_margin,
-            'des':f'{code} 非两融标的'
+            "股票名称":df_margin,
+            'des':f'{code} 非两融标的',
+            '融资净买入':f'非两融标的'
         }
     else:
         margin_flow = df_margin.to_dict()
