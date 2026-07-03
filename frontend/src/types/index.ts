@@ -36,3 +36,15 @@ export interface StockStats {
   falling: number;  // 下跌数量
   avgChange: number;  // 平均涨跌幅
 }
+
+/** 市场概况历史快照 */
+export interface MarketOverviewHistoryItem {
+  id: number;
+  snapshot_time: string;
+  ztzs: number;
+  dtzs: number;
+  znum: number;
+  dnum: number;
+  zdfb: number[];
+  suggestion: string;
+}

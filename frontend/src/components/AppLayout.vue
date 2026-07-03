@@ -81,24 +81,171 @@
             <el-icon><Document /></el-icon>
             <span>AI助手</span>
           </el-menu-item>
+          <el-menu-item index="/webview">
+            <el-icon><Monitor /></el-icon>
+            <span>网页嵌入</span>
+          </el-menu-item>
+          <el-menu-item index="/agents">
+            <el-icon><Monitor /></el-icon>
+            <span>智能体列表</span>
+          </el-menu-item>
         </el-menu>
       </div>
 
       <!-- 右侧主内容区 -->
       <div class="main-content">
-        <router-view />
+        <div class="page-content">
+          <router-view />
+        </div>
+
+        <!-- 全局 webview 容器 -->
+        <div v-show="isWebviewRoute" class="global-webview" :style="{ top: webviewTop + 'px' }">
+          <webview :src="store.webviewUrl" allowpopups style="width: 100%; height: 100%;" @dom-ready="onWebviewDomReady" />
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, ref, onMounted } from 'vue';
+import { computed, ref, watch, onMounted, onBeforeUnmount } from 'vue';
 import { useRoute } from 'vue-router';
 // 引入 Element Plus 图标
-import { HomeFilled, TrendCharts, Document } from '@element-plus/icons-vue';
+import { HomeFilled, TrendCharts, Document, Monitor } from '@element-plus/icons-vue';
+import { getMarketOverview } from '@/api/untils';
+import { useDashboardStore } from '@/stores/dashboard';
 
 const route = useRoute();
+const store = useDashboardStore();
+
+// 是否为 webview 路由（控制 v-show 显示）
+const isWebviewRoute = computed(() => route.path === '/webview' || route.path === '/agents');
+
+// webview 顶部偏移：/webview 有 toolbar 占位，/agents 全屏
+const webviewTop = computed(() => route.path === '/webview' ? 48 : 0);
+
+/** webview DOM 就绪时自动注入 */
+async function onWebviewDomReady() {
+  await applyWebviewRouteMode();
+}
+
+/** 根据当前路由模式注入 CSS/JS */
+async function applyWebviewRouteMode() {
+  const wcId = await api.webviewGetId();
+  if (!wcId) return;
+
+  if (route.path === '/webview') {
+    // 清除 agents 模式注入的 CSS，再注入持久化 CSS
+    await api.webviewRemoveCSS(wcId, 'agents-css');
+    if (store.webviewCss) {
+      await api.webviewInsertCSS(wcId, store.webviewCss, 'user-css');
+    }
+  } else if (route.path === '/agents') {
+    // 清除用户自定义 CSS，再注入 agents 模式 CSS
+    await api.webviewRemoveCSS(wcId, 'user-css');
+    // await api.webviewInsertCSS(wcId, `
+    //   nav, .sidebar, .left-container, .menu, .nav-menu,
+    //   [class*="sidebar"], [class*="nav-menu"], [class*="navigation"] {
+    //     visibility: hidden !important;
+    //   }
+    // `, 'agents-css');
+
+    await api.webviewInsertCSS(wcId,`
+      nav, .sidebar, .left-container, .menu, .nav-menu,
+            [class*="sidebar"], [class*="nav-menu"], [class*="navigation"] {
+              position: fixed; left: -9999px !important;
+            }
+    `, 'agents-css');
+    //const btns = document.querySelectorAll('.btn-text');
+    //btns[1].click();
+      await api.webviewExecuteJS(wcId, `
+          (() => {
+            const btns = document.querySelectorAll('.btn-text');
+            //for (const btn of btns) { btn.click(); break; }
+            btns[1].click();
+          })()
+        `);
+
+    // 延迟点击，等页面渲染
+    // setTimeout(async () => {
+    //   const id = await api.webviewGetId();
+    //   if (id) {
+    //     await api.webviewExecuteJS(id, `
+    //       (() => {
+    //         const btns = document.querySelectorAll('.btn-text');
+
+    //         for (const btn of btns) { btn.click(); break; }
+    //       })()
+    //     `);
+    //   }
+    // }, 1500);
+
+
+  }
+}
+
+// 监听路由切换，自动应用注入逻辑
+watch(route, () => {
+  if (route.path === '/agents' || route.path === '/webview') {
+    applyWebviewRouteMode();
+  }
+});
+
+// 检查是否在交易时间 (9:30-15:30)
+function isInTradingHours(): boolean {
+  const now = new Date();
+  const time = now.getHours() * 60 + now.getMinutes();
+  return time >= 9 * 60 + 30 && time <= 15 * 60 + 30;
+}
+
+// 自动刷新定时器
+let autoRefreshTimer: ReturnType<typeof setInterval> | null = null;
+
+async function refreshMarketOverview() {
+  try {
+    const res = await getMarketOverview();
+    const d = res.data.data;
+    store.marketPrevious = store.marketOverview
+      ? {
+          ztzs: store.marketOverview.ztzs,
+          dtzs: store.marketOverview.dtzs,
+          znum: store.marketOverview.znum,
+          dnum: store.marketOverview.dnum,
+          zdfb: [...store.marketOverview.zdfb],
+        }
+      : null;
+    store.marketOverview = {
+      ztzs: d.zdt_data.ztzs,
+      dtzs: d.zdt_data.dtzs,
+      znum: d.zdt_data.znum ?? 0,
+      dnum: d.zdt_data.dnum ?? 0,
+      zdfb: d.zdfb_data,
+    };
+    store.marketSuggestion = d.suggestion ?? '';
+  } catch {
+    // 静默失败，下次重试
+  }
+}
+
+function startAutoRefresh() {
+  if (autoRefreshTimer) return;
+  if (!isInTradingHours()) return;
+
+  autoRefreshTimer = setInterval(() => {
+    if (isInTradingHours()) {
+      refreshMarketOverview();
+    } else {
+      stopAutoRefresh();
+    }
+  }, 5 * 60 * 1000); // 5分钟
+}
+
+function stopAutoRefresh() {
+  if (autoRefreshTimer) {
+    clearInterval(autoRefreshTimer);
+    autoRefreshTimer = null;
+  }
+}
 
 // 根据路由 meta.title 显示当前页面标题
 const currentTitle = computed(() => (route.meta.title as string) || 'Client App');
@@ -153,6 +300,12 @@ onMounted(async () => {
   window.addEventListener('resize', async () => {
     isMaximized.value = await api.isMaximized();
   });
+  // 启动交易时段自动刷新市场概况
+  startAutoRefresh();
+});
+
+onBeforeUnmount(() => {
+  stopAutoRefresh();
 });
 </script>
 
@@ -307,7 +460,21 @@ onMounted(async () => {
 
 .main-content {
   flex: 1;
-  overflow: auto;
+  overflow: hidden;
+  position: relative;
   background: #f5f5f5;
+}
+
+.page-content {
+  position: relative;
+  z-index: 2;
+}
+
+.global-webview {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1;
 }
 </style>

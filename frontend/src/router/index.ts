@@ -43,6 +43,20 @@ const router = createRouter({
       component: () => import('@/views/DataAnalysis.vue'),
       meta: { title: '数据分析' },
     },
+    // 网页嵌入测试
+    {
+      path: '/webview',
+      name: 'Webview',
+      component: () => import('@/views/WebviewPage.vue'),
+      meta: { title: '网页嵌入' },
+    },
+    // 智能体列表（共享 webview，隐藏网页菜单 + 自动点击）
+    {
+      path: '/agents',
+      name: 'Agents',
+      component: () => import('@/views/AgentListPage.vue'),
+      meta: { title: '智能体列表' },
+    },
   ],
 });
 

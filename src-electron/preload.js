@@ -11,4 +11,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
   isMaximized: () => ipcRenderer.invoke('is-maximized'),
   // 支持拖拽区域通知
   startDragging: () => ipcRenderer.send('start-dragging'),
+  // Webview 内容注入
+  webviewInsertCSS: (webContentsId, css, styleId) => ipcRenderer.invoke('webview-insert-css', { webContentsId, css, styleId }),
+  webviewRemoveCSS: (webContentsId, styleId) => ipcRenderer.invoke('webview-remove-css', { webContentsId, styleId }),
+  webviewExecuteJS: (webContentsId, code) => ipcRenderer.invoke('webview-execute-js', { webContentsId, code }),
+  onWebviewAttached: (callback) => {
+    const listener = (_event, webContentsId) => callback(webContentsId);
+    ipcRenderer.on('webview-attached', listener);
+    return () => ipcRenderer.removeListener('webview-attached', listener);
+  },
+  webviewGetId: () => ipcRenderer.invoke('webview-get-id'),
 });

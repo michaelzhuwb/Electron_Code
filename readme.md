@@ -6,6 +6,7 @@ git config --global --unset https.proxy
 git config --global http.proxy http://127.0.0.1:10809
 git config --global https.proxy http://127.0.0.1:10809
 
+# position: fixed; left: -9999px
 # 关闭代理
 git config --global --unset http.proxy
 git config --global --unset https.proxy
@@ -19,4 +20,4 @@ taskkill /F /PID 13104
     # 好-：1/2仓 横盘时间三分钟内的---1/3，超过3分钟的1/2，超过10分钟的满仓
     # 中+：1/3仓，属于试错 横盘时间要大于等于三分钟才能买入， 正常情况1/3，横盘时间超过等于10分钟的 1/2仓
     # 中：观望，横盘时间要大于等于三分钟才能买入1/4仓，横盘时间大于等于8分钟才可以买入1/3仓， 拉升好的幅度完美的 1/3仓，(一般是，拉升完美的 倾斜度不会过高，)
-    # 其他空仓等待 仓位考虑横盘时间？
+    # 其他空仓等待 仓位考虑横盘时间？ 

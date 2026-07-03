@@ -11,3 +11,11 @@ export const until_test = (params:{
 export const getMarketOverview = () => {
   return request.get('/untils/market_overview');
 };
+
+export const getMarketOverviewHistory = (params?: {
+  date?: string;
+  page?: number;
+  size?: number;
+}) => {
+  return request.get('/untils/market_overview_history', { params });
+};

@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from database import Base, engine
 
 # 导入所有模型类，确保 Base.metadata 注册了所有表（建表时需要）
-from models.stock import Stock, Stock_M  # noqa: F401
+from models.stock import Stock, Stock_M, MarketOverview  # noqa: F401
 
 app = FastAPI(
     title="Client App API",

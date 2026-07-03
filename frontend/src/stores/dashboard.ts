@@ -15,6 +15,8 @@ export interface MarginData {
   tag: string;
 }
 
+import type { MarketOverviewHistoryItem } from '@/types';
+
 export interface MarketOverview {
   ztzs: number;
   dtzs: number;
@@ -78,6 +80,17 @@ export const useDashboardStore = defineStore('dashboard', () => {
     localStorage.setItem('marketSuggestion', val || '');
   });
 
+  // 市场概况历史快照列表
+  const marketHistory = ref<MarketOverviewHistoryItem[]>([]);
+  const marketHistoryTotal = ref(0);
+  const marketHistoryLoading = ref(false);
+
+  // Webview 嵌入页状态（localStorage 持久化，组件销毁后保留）
+  const webviewUrl = ref(localStorage.getItem('webviewUrl') || 'https://www.baidu.com');
+  watch(webviewUrl, (val) => localStorage.setItem('webviewUrl', val));
+  const webviewCss = ref(localStorage.getItem('webviewCss') || '');
+  watch(webviewCss, (val) => localStorage.setItem('webviewCss', val || ''));
+
   return {
     activeTab,
     searchCode,
@@ -90,5 +103,10 @@ export const useDashboardStore = defineStore('dashboard', () => {
     marketPrevious,
     marketLoading,
     marketSuggestion,
+    marketHistory,
+    marketHistoryTotal,
+    marketHistoryLoading,
+    webviewUrl,
+    webviewCss,
   };
 });

@@ -49,6 +49,69 @@
             </el-col>
           </el-row>
           <el-empty v-else description="点击刷新数据加载市场概况" />
+
+          <!-- 历史快照 -->
+          <div class="market-history-section">
+            <el-card shadow="hover">
+              <template #header>
+                <div class="card-header">
+                  <span>历史快照</span>
+                  <div>
+                    <el-date-picker
+                      v-model="historyDate"
+                      type="date"
+                      placeholder="选择日期"
+                      value-format="YYYY-MM-DD"
+                      style="width: 160px; margin-right: 8px;"
+                      @change="loadMarketHistory"
+                    />
+                    <el-button type="primary" link size="small" @click="clearHistoryDate">清除</el-button>
+                    <el-button type="primary" link size="small" @click="loadMarketHistory">刷新</el-button>
+                  </div>
+                </div>
+              </template>
+
+              <el-table
+                :data="store.marketHistory"
+                v-loading="store.marketHistoryLoading"
+                stripe
+                border
+                size="small"
+                style="width: 100%"
+              >
+                <el-table-column prop="snapshot_time" label="采集时间" width="150" />
+                <el-table-column prop="ztzs" label="涨停数" width="75" align="center">
+                  <template #default="{ row }">
+                    <span class="up">{{ row.ztzs }}</span>
+                  </template>
+                </el-table-column>
+                <el-table-column prop="dtzs" label="跌停数" width="75" align="center">
+                  <template #default="{ row }">
+                    <span class="down">{{ row.dtzs }}</span>
+                  </template>
+                </el-table-column>
+                <el-table-column prop="znum" label="上涨数" width="75" align="center">
+                  <template #default="{ row }">
+                    <span class="up">{{ row.znum }}</span>
+                  </template>
+                </el-table-column>
+                <el-table-column prop="dnum" label="下跌数" width="75" align="center">
+                  <template #default="{ row }">
+                    <span class="down">{{ row.dnum }}</span>
+                  </template>
+                </el-table-column>
+                <!-- 涨跌幅分布 10个区间 -->
+                <el-table-column v-for="i in 10" :key="'zdfb_' + i" :label="zdfbLabels[i-1].label" width="72" align="center">
+                  <template #default="{ row }">
+                    <span :class="i <= 5 ? 'down' : 'up'">
+                      {{ row.zdfb[i-1] ?? 0 }}
+                    </span>
+                  </template>
+                </el-table-column>
+                <el-table-column prop="suggestion" label="策略建议" min-width="160" show-overflow-tooltip />
+              </el-table>
+            </el-card>
+          </div>
         </div>
       </el-tab-pane>
 
@@ -142,8 +205,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
-import { until_test, getMarketOverview } from '@/api/untils';
+import { ref, onMounted } from 'vue';
+import { until_test, getMarketOverview, getMarketOverviewHistory } from '@/api/untils';
 import { saveToStockM } from '@/api/stock_m';
 import { useDashboardStore } from '@/stores/dashboard';
 import { ElMessage } from 'element-plus';
@@ -152,6 +215,31 @@ const store = useDashboardStore();
 
 const loading = ref(false);
 const savingRow = ref<string | null>(null);
+
+// 历史快照日期筛选
+const historyDate = ref('');
+
+/** 加载市场概况历史快照 */
+async function loadMarketHistory() {
+  store.marketHistoryLoading = true;
+  try {
+    const params: any = { page: 1, size: 50 };
+    if (historyDate.value) params.date = historyDate.value;
+    const res = await getMarketOverviewHistory(params);
+    store.marketHistory = res.data.data.data;
+    store.marketHistoryTotal = res.data.data.total;
+  } catch {
+    // 已由拦截器处理
+  } finally {
+    store.marketHistoryLoading = false;
+  }
+}
+
+/** 清除历史快照日期筛选 */
+function clearHistoryDate() {
+  historyDate.value = '';
+  loadMarketHistory();
+}
 
 /** 查询两融数据 */
 async function loadMarginData() {
@@ -296,6 +384,9 @@ async function loadMarketOverview() {
       zdfb: d.zdfb_data,
     };
     store.marketSuggestion = d.suggestion ?? '';
+
+    // 市场概况刷新完成后，延迟同步更新历史快照
+    setTimeout(() => loadMarketHistory(), 1000);
   } catch {
     // 已由拦截器处理
   } finally {
@@ -308,6 +399,11 @@ function zdfbLabelClass(idx: number) {
   if (idx <= 4) return 'down';
   return 'up';
 }
+
+/** 组件挂载时加载历史快照 */
+onMounted(() => {
+  loadMarketHistory();
+});
 
 /** 进度条百分比（相对于最大值） */
 function zdfbPercentage(val: number | undefined) {
@@ -367,6 +463,7 @@ function zdfbDiff(idx: number) {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 20px;
+  gap: 12px;
 }
 
 .market-suggestion {
@@ -464,5 +561,9 @@ function zdfbDiff(idx: number) {
 .down {
   color: #67c23a;
   font-weight: 600;
+}
+
+.market-history-section {
+  margin-top: 20px;
 }
 </style>

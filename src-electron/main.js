@@ -3,7 +3,7 @@
  * - 创建无边框窗口
  * - 开发环境加载 Vite 开发服务器，生产环境加载打包后的文件
  */
-const { app, BrowserWindow, Menu, globalShortcut, ipcMain } = require('electron');
+const { app, BrowserWindow, Menu, globalShortcut, ipcMain, webContents } = require('electron');
 
 // 隐藏默认菜单栏（File/Edit/View）
 Menu.setApplicationMenu(null);
@@ -13,6 +13,93 @@ const path = require('path');
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
 
 let mainWindow = null;
+
+// Webview webContentsId 追踪
+let webviewWebContentsId = null;
+
+// webview 挂载时记录其 webContentsId（全局监听）
+app.on('web-contents-created', (_event, wc) => {
+  if (wc.getType() === 'webview') {
+    webviewWebContentsId = wc.id;
+  }
+});
+
+// 窗口控制 IPC 通信（注册在主模块级别，避免重复注册）
+ipcMain.on('minimize-window', () => {
+  mainWindow?.minimize();
+});
+ipcMain.on('maximize-window', () => {
+  if (mainWindow?.isMaximized()) {
+    mainWindow.unmaximize();
+  } else {
+    mainWindow?.maximize();
+  }
+});
+ipcMain.on('close-window', () => {
+  mainWindow?.close();
+});
+ipcMain.handle('is-maximized', () => {
+  return mainWindow?.isMaximized() ?? false;
+});
+ipcMain.on('start-dragging', (e) => {
+  if (e.sender.isDestroyed()) return;
+  const bounds = e.sender.getWebContents().getOSChunkSize();
+  mainWindow?.setPosition(
+    mainWindow.getPosition()[0],
+    mainWindow.getPosition()[1]
+  );
+});
+
+// Webview 内容注入（通过 JS 注入 <style> 标签，可按 ID 移除）
+ipcMain.handle('webview-insert-css', async (_event, { webContentsId, css, styleId }) => {
+  try {
+    const wc = webContents.fromId(webContentsId);
+    if (wc && !wc.isDestroyed()) {
+      const id = styleId || 'michael-css';
+      await wc.executeJavaScript(`
+        (() => {
+          let style = document.getElementById('${id}');
+          if (!style) {
+            style = document.createElement('style');
+            style.id = '${id}';
+            document.head.appendChild(style);
+          }
+          style.textContent = ${JSON.stringify(css)};
+        })()
+      `);
+      return { ok: true };
+    }
+  } catch {}
+  return { ok: false };
+});
+ipcMain.handle('webview-remove-css', async (_event, { webContentsId, styleId }) => {
+  try {
+    const wc = webContents.fromId(webContentsId);
+    if (wc && !wc.isDestroyed()) {
+      const id = styleId || 'michael-css';
+      await wc.executeJavaScript(`
+        (() => {
+          const style = document.getElementById('${id}');
+          if (style) style.remove();
+        })()
+      `);
+      return { ok: true };
+    }
+  } catch {}
+  return { ok: false };
+});
+ipcMain.handle('webview-execute-js', async (_event, { webContentsId, code }) => {
+  try {
+    const wc = webContents.fromId(webContentsId);
+    if (wc && !wc.isDestroyed()) {
+      return await wc.executeJavaScript(code);
+    }
+  } catch {}
+  return null;
+});
+ipcMain.handle('webview-get-id', () => {
+  return webviewWebContentsId;
+});
 
 /** 创建主窗口 */
 function createWindow() {
@@ -27,6 +114,7 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,   // 启用上下文隔离（安全）
       nodeIntegration: false,    // 禁用 Node 集成（安全）
+      webviewTag: true,          // 启用 webview 标签
     },
   });
 
@@ -47,33 +135,6 @@ function createWindow() {
     } else {
       mainWindow.webContents.openDevTools({ mode: 'bottom' });
     }
-  });
-
-  // 窗口控制 IPC 通信
-  ipcMain.on('minimize-window', () => {
-    mainWindow?.minimize();
-  });
-  ipcMain.on('maximize-window', () => {
-    if (mainWindow.isMaximized()) {
-      mainWindow.unmaximize();
-    } else {
-      mainWindow.maximize();
-    }
-  });
-  ipcMain.on('close-window', () => {
-    mainWindow?.close();
-  });
-  ipcMain.handle('is-maximized', () => {
-    return mainWindow?.isMaximized() ?? false;
-  });
-  ipcMain.on('start-dragging', (e) => {
-    // 用于标题栏拖拽区域
-    if (e.sender.isDestroyed()) return;
-    const bounds = e.sender.getWebContents().getOSChunkSize();
-    mainWindow?.setPosition(
-      mainWindow.getPosition()[0],
-      mainWindow.getPosition()[1]
-    );
   });
 
   mainWindow.on('closed', () => {

@@ -1,10 +1,42 @@
-from fastapi import APIRouter, Query, Depends
+from fastapi import APIRouter, Query, Depends, BackgroundTasks
 from sqlalchemy.orm import Session
+from datetime import datetime
 from database import SessionLocal, get_db
 from untils.until import get_margin_flow,get_major_flow,format_money,judge, get_indexflash
 from untils.trading_time import get_T
 
 router = APIRouter(prefix="/api/untils", tags=["功能工具"])
+
+
+def save_market_overview_snapshot(
+    ztzs: int, dtzs: int, znum: int, dnum: int, zdfb: list, suggestion: str
+):
+    """后台任务：保存市场概况快照到数据库"""
+    db = SessionLocal()
+    from models.stock import MarketOverview
+    try:
+        record = MarketOverview(
+            snapshot_time=datetime.now(),
+            ztzs=ztzs, dtzs=dtzs, znum=znum, dnum=dnum,
+            zdfb_0=zdfb[0] if len(zdfb) > 0 else 0,
+            zdfb_1=zdfb[1] if len(zdfb) > 1 else 0,
+            zdfb_2=zdfb[2] if len(zdfb) > 2 else 0,
+            zdfb_3=zdfb[3] if len(zdfb) > 3 else 0,
+            zdfb_4=zdfb[4] if len(zdfb) > 4 else 0,
+            zdfb_5=zdfb[5] if len(zdfb) > 5 else 0,
+            zdfb_6=zdfb[6] if len(zdfb) > 6 else 0,
+            zdfb_7=zdfb[7] if len(zdfb) > 7 else 0,
+            zdfb_8=zdfb[8] if len(zdfb) > 8 else 0,
+            zdfb_9=zdfb[9] if len(zdfb) > 9 else 0,
+            suggestion=suggestion,
+        )
+        db.add(record)
+        db.commit()
+    except Exception as e:
+        print(f"保存市场概况快照失败: {e}")
+        db.rollback()
+    finally:
+        db.close()
 
 @router.get("/get_code_margin")
 def get_code_margin(
@@ -53,7 +85,7 @@ def get_code_margin(
 
 
 @router.get("/market_overview")
-def market_overview():
+def market_overview(background_tasks: BackgroundTasks):
     """获取市场概况：涨跌停统计 + 涨跌幅分布"""
     import json
     raw = get_indexflash()
@@ -92,6 +124,12 @@ def market_overview():
             open_list.append("突破")
         suggestion += "、".join(open_list)
 
+    # 后台异步保存快照（不阻塞响应）
+    background_tasks.add_task(
+        save_market_overview_snapshot,
+        ztzs, dtzs, zdfb_info.get('znum', 0), zdfb_info.get('dnum', 0), zdfb, suggestion
+    )
+
     return {
         "code": 200,
         "data": {
@@ -104,4 +142,49 @@ def market_overview():
             "zdfb_data": zdfb,
             "suggestion":suggestion
         }
+    }
+
+
+@router.get("/market_overview_history")
+def get_market_overview_history(
+    date: str = Query(None, description="筛选日期，格式 YYYY-MM-DD"),
+    page: int = Query(1, ge=1),
+    size: int = Query(50, ge=1, le=200),
+    db: Session = Depends(get_db),
+):
+    """查询市场概况历史快照"""
+    from models.stock import MarketOverview
+    from sqlalchemy import cast, String
+    query = db.query(MarketOverview)
+    if date:
+        query = query.filter(
+            cast(MarketOverview.snapshot_time, String).startswith(date)
+        )
+    total = query.count()
+    skip = (page - 1) * size
+    records = query.order_by(MarketOverview.snapshot_time.desc()).offset(skip).limit(size).all()
+
+    result = []
+    for r in records:
+        result.append({
+            "id": r.id,
+            "snapshot_time": r.snapshot_time.strftime("%Y-%m-%d %H:%M:%S"),
+            "ztzs": r.ztzs,
+            "dtzs": r.dtzs,
+            "znum": r.znum,
+            "dnum": r.dnum,
+            "zdfb": [r.zdfb_0, r.zdfb_1, r.zdfb_2, r.zdfb_3, r.zdfb_4,
+                     r.zdfb_5, r.zdfb_6, r.zdfb_7, r.zdfb_8, r.zdfb_9],
+            "suggestion": r.suggestion,
+        })
+
+    return {
+        "code": 200,
+        "data": {
+            "total": total,
+            "page": page,
+            "size": size,
+            "data": result,
+        },
+        "msg": "查询成功",
     }
