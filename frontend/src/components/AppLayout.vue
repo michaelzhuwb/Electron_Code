@@ -94,7 +94,7 @@
 
       <!-- 右侧主内容区 -->
       <div class="main-content">
-        <div class="page-content">
+        <div class="page-content" :class="{ 'no-pointer': isWebviewRoute }">
           <router-view />
         </div>
 
@@ -467,6 +467,16 @@ onBeforeUnmount(() => {
   z-index: 2;
   height: 100%;
   overflow: auto;
+}
+
+.page-content.no-pointer {
+  pointer-events: none;
+}
+
+/* Allow toolbar and script panel to receive clicks */
+.page-content.no-pointer :deep(.webview-page),
+.page-content.no-pointer :deep(.agents-page) {
+  pointer-events: auto;
 }
 
 .global-webview {
