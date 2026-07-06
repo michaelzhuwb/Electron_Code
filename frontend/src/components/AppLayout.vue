@@ -229,13 +229,10 @@ async function refreshMarketOverview() {
 
 function startAutoRefresh() {
   if (autoRefreshTimer) return;
-  if (!isInTradingHours()) return;
 
   autoRefreshTimer = setInterval(() => {
     if (isInTradingHours()) {
       refreshMarketOverview();
-    } else {
-      stopAutoRefresh();
     }
   }, 5 * 60 * 1000); // 5分钟
 }
@@ -468,6 +465,8 @@ onBeforeUnmount(() => {
 .page-content {
   position: relative;
   z-index: 2;
+  height: 100%;
+  overflow: auto;
 }
 
 .global-webview {
