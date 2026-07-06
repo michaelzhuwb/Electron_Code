@@ -98,8 +98,8 @@
           <router-view />
         </div>
 
-        <!-- 全局 webview 容器 -->
-        <div v-show="isWebviewRoute" class="global-webview" :style="{ top: webviewTop + 'px' }">
+        <!-- 全局 webview 容器（始终挂载，仅控制可见性以保持登录态） -->
+        <div class="global-webview" :class="{ 'webview-visible': isWebviewRoute }" :style="{ top: webviewTop + 'px' }">
           <webview :src="store.webviewUrl" allowpopups style="width: 100%; height: 100%;" @dom-ready="onWebviewDomReady" />
         </div>
       </div>
@@ -469,5 +469,10 @@ onBeforeUnmount(() => {
   right: 0;
   bottom: 0;
   z-index: 1;
+  visibility: hidden;
+}
+
+.global-webview.webview-visible {
+  visibility: visible;
 }
 </style>
