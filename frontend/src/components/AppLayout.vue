@@ -125,62 +125,46 @@ const isWebviewRoute = computed(() => route.path === '/webview' || route.path ==
 const webviewTop = computed(() => route.path === '/webview' ? 48 : 0);
 
 /** webview DOM 就绪时自动注入 */
+// 防重复执行锁
+let applyingMode = false;
+
+/** webview DOM 就绪时自动注入 */
 async function onWebviewDomReady() {
+  if (applyingMode) return;
   await applyWebviewRouteMode();
 }
 
 /** 根据当前路由模式注入 CSS/JS */
 async function applyWebviewRouteMode() {
-  const wcId = await api.webviewGetId();
-  if (!wcId) return;
+  if (applyingMode) return;
+  applyingMode = true;
+  try {
+    const wcId = await api.webviewGetId();
+    if (!wcId) return;
 
-  if (route.path === '/webview') {
-    // 清除 agents 模式注入的 CSS，再注入持久化 CSS
-    await api.webviewRemoveCSS(wcId, 'agents-css');
-    if (store.webviewCss) {
-      await api.webviewInsertCSS(wcId, store.webviewCss, 'user-css');
-    }
-  } else if (route.path === '/agents') {
-    // 清除用户自定义 CSS，再注入 agents 模式 CSS
-    await api.webviewRemoveCSS(wcId, 'user-css');
-    // await api.webviewInsertCSS(wcId, `
-    //   nav, .sidebar, .left-container, .menu, .nav-menu,
-    //   [class*="sidebar"], [class*="nav-menu"], [class*="navigation"] {
-    //     visibility: hidden !important;
-    //   }
-    // `, 'agents-css');
-
-    await api.webviewInsertCSS(wcId,`
-      nav, .sidebar, .left-container, .menu, .nav-menu,
-            [class*="sidebar"], [class*="nav-menu"], [class*="navigation"] {
-              position: fixed; left: -9999px !important;
-            }
-    `, 'agents-css');
-    //const btns = document.querySelectorAll('.btn-text');
-    //btns[1].click();
+    if (route.path === '/webview') {
+      await api.webviewRemoveCSS(wcId, 'agents-css');
+      if (store.webviewCss) {
+        await api.webviewInsertCSS(wcId, store.webviewCss, 'user-css');
+      }
+    } else if (route.path === '/agents') {
+      await api.webviewRemoveCSS(wcId, 'user-css');
+      await api.webviewInsertCSS(wcId, `
+        nav, .sidebar, .left-container, .menu, .nav-menu,
+        [class*="sidebar"], [class*="nav-menu"], [class*="navigation"] {
+          position: fixed !important; left: -9999px !important;
+        }
+      `, 'agents-css');
       await api.webviewExecuteJS(wcId, `
-          (() => {
-            const btns = document.querySelectorAll('.btn-text');
-            //for (const btn of btns) { btn.click(); break; }
-            btns[1].click();
-          })()
-        `);
-
-    // 延迟点击，等页面渲染
-    // setTimeout(async () => {
-    //   const id = await api.webviewGetId();
-    //   if (id) {
-    //     await api.webviewExecuteJS(id, `
-    //       (() => {
-    //         const btns = document.querySelectorAll('.btn-text');
-
-    //         for (const btn of btns) { btn.click(); break; }
-    //       })()
-    //     `);
-    //   }
-    // }, 1500);
-
-
+        (() => {
+          const btns = document.querySelectorAll('.btn-text');
+          if (btns[1]) { btns[1].click(); }
+          else if (btns[0]) { btns[0].click(); }
+        })()
+      `);
+    }
+  } finally {
+    applyingMode = false;
   }
 }
 
