@@ -1,7 +1,7 @@
 <template>
   <div class="webview-page">
     <div class="webview-toolbar">
-      <el-input v-model="url" placeholder="输入网址，例如 https://www.baidu.com" style="flex: 1; margin-right: 8px;" @keyup.enter="loadUrl" />
+      <el-input v-model="url" placeholder="输入网址，例如 http://10.135.126.11:12333/web/ai-agent/index.html#/login" style="flex: 1; margin-right: 8px;" @keyup.enter="loadUrl" />
       <el-button type="primary" @click="loadUrl">加载</el-button>
       <el-button type="info" @click="showScript = !showScript">{{ showScript ? '隐藏' : '注入' }}</el-button>
     </div>

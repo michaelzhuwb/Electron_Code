@@ -35,7 +35,7 @@ major_headers = {
     'sec-ch-ua': '"Chromium";v="148", "Google Chrome";v="148", "Not/A)Brand";v="99"',
     'sec-ch-ua-mobile': '?0',
     'sec-ch-ua-platform': '"Windows"',
-    'Cookie': 'qgqp_b_id=17d3c65bd3714c245d297df85500cc15; st_nvi=KVUtBfjXoZ8TiAD8ROJngb1fc; nid18=01b4051cb3b054f0b083f80f3762b0e5; nid18_create_time=1782722443113; gviem=3aMPl-pGr2tWrGMF-zIqBfbe9; gviem_create_time=1782722443113; fullscreengg=1; fullscreengg2=1; st_si=27379133442056; wsc_checkuser_ok=1; st_asi=delete; st_pvi=71950343209829; st_sp=2026-02-11%2018%3A56%3A52; st_inirUrl=https%3A%2F%2Fquote.eastmoney.com%2Fcenter%2Fboardlist.html; st_sn=36; st_psi=20260630171242873-113300300815-2706444891'
+    'Cookie': 'qgqp_b_id=910350466b7339e1fdb836fe87548892; st_nvi=4fwQ29fF9Bl17gHnrOaYs6ac2; nid18=0f7cefb64d36a33db2e914d8df66b3d1; nid18_create_time=1777182029600; gviem=Hc3DJD7PMqu3PhJWwDImm5571; gviem_create_time=1777182029600; qRecords=%5B%7B%22name%22%3A%22%u534E%u5DE5%u79D1%u6280%22%2C%22code%22%3A%22SZ000988%22%7D%2C%7B%22name%22%3A%22%u6F9C%u8D77%u79D1%u6280%22%2C%22code%22%3A%22SH688008%22%7D%2C%7B%22name%22%3A%22%u4F0A%u6CF0%uFF22%u80A1%22%2C%22code%22%3A%22SH900948%22%7D%5D; fullscreengg=1; fullscreengg2=1; st_si=47633191765210; wsc_checkuser_ok=1; st_pvi=68778873072756; st_sp=2026-01-26%2013%3A21%3A10; st_inirUrl=https%3A%2F%2Fguba.eastmoney.com%2F; st_sn=2; st_psi=20260706085942807-113300300815-4774135794; st_asi=delete'
 }
 
 
@@ -44,9 +44,18 @@ major_headers = {
 # 模块级全局 session，后端启动时创建一次，所有请求复用连接池
 sess = requests.session()
 sess.headers = margin_headers
+margin_result = None
 
 def get_margin_flow(code='600000',m_date=None):
+
+    try:
+        return get_margin_flow_from_ak(code,m_date)
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        print(f"获取两融数据失败: {e},尝试单独获取")
     # m_date=get_T()    # '%Y%m%d'
+    
     url = f'https://data.10jqka.com.cn/market/rzrqgg/code/{code}/'
     res = sess.get(url=url)
     root = etree.HTML(res.text)
@@ -95,6 +104,56 @@ def get_margin_flow(code='600000',m_date=None):
         return df.loc[m_date]
     return df
 
+
+def get_margin_flow_from_ak(code,m_date):
+    global margin_result
+    if margin_result is None:
+        import akshare as ak
+        # prev_date = (datetime.strptime(m_date, "%Y%m%d") - timedelta(days=1)).strftime("%Y%m%d")
+        prev_date = get_T(-1,date=datetime.strptime(m_date, "%Y%m%d"))
+        date = m_date
+        print(f"获取上交所 {date} 两融数据...")
+        sse_today = ak.stock_margin_detail_sse(date=date)
+        print(f"获取上交所 {prev_date} 两融数据...")
+        sse_prev = ak.stock_margin_detail_sse(date=prev_date)
+
+        print(f"获取深交所 {date} 两融数据...")
+        sz_today = ak.stock_margin_detail_szse(date=date)
+        print(f"获取深交所 {prev_date} 两融数据...")
+        sz_prev = ak.stock_margin_detail_szse(date=prev_date)
+            # 统一列名
+        for df in [sse_today, sse_prev, sz_today, sz_prev]:
+            if "标的证券代码" in df.columns:
+                df.rename(columns={"标的证券代码": "证券代码", "标的证券简称": "证券简称"}, inplace=True)
+
+        # 合并沪深
+        today = pd.concat([sse_today, sz_today], ignore_index=True)
+        prev = pd.concat([sse_prev, sz_prev], ignore_index=True)
+
+        today = today[["证券代码", "证券简称", "融资买入额", "融资余额"]].copy()
+        today.rename(columns={"融资余额": "融资余额(今日)", "融资买入额": "融资买入额(今日)"}, inplace=True)
+        prev_balance = prev[["证券代码", "融资余额"]].copy()
+        prev_balance.rename(columns={"融资余额": "融资余额(昨日)"}, inplace=True)
+
+        result = today.merge(prev_balance, on="证券代码", how="left")
+        result["融资净买入"] = result["融资余额(今日)"] - result["融资余额(昨日)"]
+        result["融资净买入"] = result["融资净买入"].apply(lambda x: format_money(x))
+        result["融资买入额(今日)"] = round(result["融资买入额(今日)"] / 10000, 2)
+        result["融资余额(今日)"] = round(result["融资余额(今日)"] / 10000, 2)
+        result["融资余额(昨日)"] = round(result["融资余额(昨日)"] / 10000, 2)
+        result.rename(columns={"证券代码": "股票代码", "证券简称": "股票名称"}, inplace=True)
+        result["股票代码"] = result["股票代码"].astype(str).str.zfill(6)
+        result['交易时间'] = m_date
+        result.set_index('交易时间', inplace=True)
+        margin_result = result
+        _res = result[result['股票代码'] == code]
+        if not _res.empty:
+            return _res.iloc[0]
+    else:
+        _res = margin_result[margin_result['股票代码'] == code]
+        if not _res.empty:
+            return _res.iloc[0]
+    return code
 
 def get_major_flow(
     code: str = "600094", 

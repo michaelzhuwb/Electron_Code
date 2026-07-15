@@ -86,7 +86,7 @@ export const useDashboardStore = defineStore('dashboard', () => {
   const marketHistoryLoading = ref(false);
 
   // Webview 嵌入页状态（localStorage 持久化，组件销毁后保留）
-  const webviewUrl = ref(localStorage.getItem('webviewUrl') || 'https://www.baidu.com');
+  const webviewUrl = ref(localStorage.getItem('webviewUrl') || 'http://10.135.126.11:12333/web/ai-agent/index.html#/login');
   watch(webviewUrl, (val) => localStorage.setItem('webviewUrl', val));
   const webviewCss = ref(localStorage.getItem('webviewCss') || '');
   watch(webviewCss, (val) => localStorage.setItem('webviewCss', val || ''));
