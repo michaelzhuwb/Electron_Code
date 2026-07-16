@@ -46,16 +46,20 @@ sess = requests.session()
 sess.headers = margin_headers
 margin_result = None
 
-def get_margin_flow(code='600000',m_date=None):
+def get_margin_flow(code='600000', m_date=None, source='ak'):
+    """
+    获取两融数据
+    source: 'ak' = akshare (默认), 'dq' = 东方财富
+    """
+    if source == 'ak':
+        try:
+            return get_margin_flow_from_ak(code, m_date)
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            print(f"akshare 获取两融数据失败: {e}, 回退东方财富")
 
-    try:
-        return get_margin_flow_from_ak(code,m_date)
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        print(f"获取两融数据失败: {e},尝试单独获取")
-    # m_date=get_T()    # '%Y%m%d'
-    
+    # 东方财富 API
     url = f'https://data.10jqka.com.cn/market/rzrqgg/code/{code}/'
     res = sess.get(url=url)
     root = etree.HTML(res.text)
@@ -108,6 +112,8 @@ def get_margin_flow(code='600000',m_date=None):
 def get_margin_flow_from_ak(code,m_date):
     global margin_result
     if margin_result is None:
+        margin_result = {}
+    if m_date not in margin_result:
         import akshare as ak
         # prev_date = (datetime.strptime(m_date, "%Y%m%d") - timedelta(days=1)).strftime("%Y%m%d")
         prev_date = get_T(-1,date=datetime.strptime(m_date, "%Y%m%d"))
@@ -145,12 +151,12 @@ def get_margin_flow_from_ak(code,m_date):
         result["股票代码"] = result["股票代码"].astype(str).str.zfill(6)
         result['交易时间'] = m_date
         result.set_index('交易时间', inplace=True)
-        margin_result = result
+        margin_result[m_date] = result
         _res = result[result['股票代码'] == code]
         if not _res.empty:
             return _res.iloc[0]
     else:
-        _res = margin_result[margin_result['股票代码'] == code]
+        _res = margin_result[m_date][margin_result[m_date]['股票代码'] == code]
         if not _res.empty:
             return _res.iloc[0]
     return code
