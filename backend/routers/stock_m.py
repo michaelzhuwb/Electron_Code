@@ -202,6 +202,7 @@ def get_stock_m(
 async def upload_excel(
     file: UploadFile = File(..., description="Excel文件"),
     code_date: str = Query("", description="选股日期，空则用上一个交易日"),
+    source: str = Query("ak", description="两融数据源: ak=akshare, dq=东方财富"),
 ):
     """
     读取 Excel 文件，第一列为股票代码。
@@ -260,7 +261,7 @@ async def upload_excel(
                     continue
                 try:
                     m_date = code_date.replace('-', '')
-                    df_margin = get_margin_flow(code, m_date)
+                    df_margin = get_margin_flow(code, m_date, source=source)
                     df_major = get_major_flow(code, m_date, '')
 
                     if df_margin is None or isinstance(df_margin, str):

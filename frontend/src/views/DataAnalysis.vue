@@ -128,6 +128,12 @@
             <el-form-item label="Cookie">
               <el-input v-model="store.majorCookie" placeholder="主力资金查询cookie" style="width: 200px;" />
             </el-form-item>
+            <el-form-item label="数据源">
+              <el-select v-model="store.marginSource" style="width: 130px;">
+                <el-option label="akshare" value="ak" />
+                <el-option label="东方财富" value="dq" />
+              </el-select>
+            </el-form-item>
             <el-form-item>
               <el-button type="primary" @click="loadMarginData" :loading="loading">查询</el-button>
             </el-form-item>
@@ -249,6 +255,7 @@ async function loadMarginData() {
       code: store.searchCode,
       code_date: store.searchDate || undefined,
       major_cookie: store.majorCookie || undefined,
+      source: store.marginSource,
     });
     const data = res.data.data;
     const margin = data.margin_flow as any;

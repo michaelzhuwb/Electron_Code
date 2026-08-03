@@ -122,6 +122,12 @@
           <el-date-picker v-model="uploadCodeDate" type="date" placeholder="选择日期" value-format="YYYY-MM-DD" />
           <span style="margin-left: 10px; color: #909399; font-size: 12px;">留空则取上一个交易日</span>
         </el-form-item>
+        <el-form-item label="两融数据源">
+          <el-select v-model="uploadSource" style="width: 130px;">
+            <el-option label="akshare" value="ak" />
+            <el-option label="同花顺" value="dq" />
+          </el-select>
+        </el-form-item>
         <el-form-item label="Excel文件" style="width: 100%">
           <el-upload
             :auto-upload="false"
@@ -182,6 +188,7 @@ const fileList = ref<UploadUserFile[]>([]);
 const uploadProgress = ref<number | null>(null);
 const uploadStatus = ref<string>('');
 const uploadMessage = ref('');
+const uploadSource = ref('ak');
 
 /** 文件选择变化 */
 function handleFileChange(file: any) {
@@ -210,7 +217,7 @@ async function handleUploadExcel() {
   uploadStatus.value = '';
   uploadMessage.value = '正在导入...';
   try {
-    const res = await uploadStockMExcel(uploadFile.value, uploadCodeDate.value || undefined);
+    const res = await uploadStockMExcel(uploadFile.value, uploadCodeDate.value || undefined, uploadSource.value);
     const taskId = res.data.data.task_id;
     uploadMessage.value = '任务已启动，等待完成...';
     // 轮询任务状态

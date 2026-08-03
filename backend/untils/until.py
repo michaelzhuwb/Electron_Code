@@ -53,7 +53,9 @@ def get_margin_flow(code='600000', m_date=None, source='ak'):
     """
     if source == 'ak':
         try:
-            return get_margin_flow_from_ak(code, m_date)
+            _df = get_margin_flow_from_ak(code, m_date)
+            print(f"akshare 获取两融数据成功: {code}, {m_date}",_df)
+            return _df
         except Exception as e:
             import traceback
             traceback.print_exc()

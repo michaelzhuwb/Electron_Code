@@ -41,6 +41,10 @@ export const useDashboardStore = defineStore('dashboard', () => {
     localStorage.setItem('majorCookie', val || '');
   });
 
+  // 两融数据源: ak=akshare, dq=东方财富
+  const marginSource = ref(localStorage.getItem('marginSource') || 'ak');
+  watch(marginSource, (val) => localStorage.setItem('marginSource', val));
+
   // 两融数据
   const marginData = ref<MarginData | null>(null);
 
@@ -96,6 +100,7 @@ export const useDashboardStore = defineStore('dashboard', () => {
     searchCode,
     searchDate,
     majorCookie,
+    marginSource,
     marginData,
     marginHistory,
     savedRowCodes,

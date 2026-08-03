@@ -43,13 +43,14 @@ def get_code_margin(
     code:   str= Query("60000", description = '代码'),
     code_date: str = Query("", description="按日期筛选，空则取最新日期"),
     major_cookie:   str = Query("",description="主力资金净流入查询的cookie"),
+    source: str = Query("ak", description="两融数据源: ak=akshare, dq=东方财富"),
     db:Session = Depends(get_db)):
     if not code_date:
         code_date = get_T(-1)
         print('查询日期未设置，使用默认日期:',code_date)
     code_date = code_date.replace('-','')
     print('参数',code,code_date)
-    df_margin = get_margin_flow(code,code_date)
+    df_margin = get_margin_flow(code, code_date, source=source)
     df_major = get_major_flow(code,code_date,major_cookie)   
     if type(df_margin) == str:
         margin_flow = {

@@ -49,11 +49,12 @@ export const getStockMTags = () => {
  * @param file Excel 文件
  * @param codeDate 选股日期，空则用当天
  */
-export const uploadStockMExcel = (file: File, codeDate?: string) => {
+export const uploadStockMExcel = (file: File, codeDate?: string, source?: string) => {
   const formData = new FormData();
   formData.append('file', file);
   const params: Record<string, string> = {};
   if (codeDate) params.code_date = codeDate;
+  if (source) params.source = source;
   return request.post('/stock-m/upload', formData, {
     params,
     headers: { 'Content-Type': 'multipart/form-data' },
