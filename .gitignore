@@ -6,4 +6,5 @@ release/
 *.pyc
 __pycache__/
 .env
+deepseek_config.py
 .vscode/
