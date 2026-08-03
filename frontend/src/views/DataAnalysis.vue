@@ -131,7 +131,7 @@
             <el-form-item label="数据源">
               <el-select v-model="store.marginSource" style="width: 130px;">
                 <el-option label="akshare" value="ak" />
-                <el-option label="东方财富" value="dq" />
+                <el-option label="同花顺" value="dq" />
               </el-select>
             </el-form-item>
             <el-form-item>
