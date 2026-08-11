@@ -314,6 +314,7 @@ async function handleSaveToStockM(row: any) {
       rq_margin_trading: row.marginNetBuy,
       flag: row.tag,
       code_type: '其他',
+      self_source: '自选',
     });
     ElMessage.success('已入库');
     if (!store.savedRowCodes.includes(rowKey)) {

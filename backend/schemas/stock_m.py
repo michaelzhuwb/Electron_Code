@@ -12,6 +12,7 @@ class StockMResponse(BaseModel):
     extra_large_flow: str
     large_flow: str
     code_type: str
+    self_source: str
     flag: str
 
     class Config:

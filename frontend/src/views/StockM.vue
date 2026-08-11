@@ -16,6 +16,16 @@
             <el-option v-for="t in tags" :key="t" :value="t" :label="t" />
           </el-select>
         </el-form-item>
+        <el-form-item label="形态">
+          <el-select v-model="store.filterCodeType" placeholder="全部" clearable @change="handleFilter" style="width: 150px">
+            <el-option v-for="t in codeTypes" :key="t" :value="t" :label="t" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="自选来源">
+          <el-select v-model="store.filterSelfSource" placeholder="全部" clearable @change="handleFilter" style="width: 150px">
+            <el-option v-for="s in selfSources" :key="s" :value="s" :label="s" />
+          </el-select>
+        </el-form-item>
         <el-form-item label="股票代码">
           <el-input v-model="store.filterCode" placeholder="输入代码" clearable @keyup.enter="handleFilter" />
         </el-form-item>
@@ -56,6 +66,11 @@
         <el-table-column prop="code_type" label="形态" width="120">
           <template #default="{ row }">
             <el-tag v-if="row.code_type" size="small" type="info">{{ row.code_type }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="self_source" label="自选来源" width="120">
+          <template #default="{ row }">
+            <el-tag v-if="row.self_source" size="small" type="success">{{ row.self_source }}</el-tag>
           </template>
         </el-table-column>
         <el-table-column
@@ -108,6 +123,11 @@
             <el-option v-for="t in codeTypes" :key="t" :value="t" :label="t" />
           </el-select>
         </el-form-item>
+        <el-form-item label="自选来源">
+          <el-select v-model="editSelfSource" placeholder="选择自选来源" clearable style="width: 100%">
+            <el-option v-for="s in selfSources" :key="s" :value="s" :label="s" />
+          </el-select>
+        </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="showEditDialog = false">取消</el-button>
@@ -126,6 +146,16 @@
           <el-select v-model="uploadSource" style="width: 130px;">
             <el-option label="akshare" value="ak" />
             <el-option label="同花顺" value="dq" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="形态">
+          <el-select v-model="uploadCodeType" style="width: 130px;">
+            <el-option v-for="t in codeTypes" :key="t" :value="t" :label="t" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="自选来源">
+          <el-select v-model="uploadSelfSource" style="width: 130px;">
+            <el-option v-for="s in selfSources" :key="s" :value="s" :label="s" />
           </el-select>
         </el-form-item>
         <el-form-item label="Excel文件" style="width: 100%">
@@ -170,13 +200,15 @@ const loading = ref(false);
 
 const dates = ref<string[]>([]);
 const tags = ref<string[]>([]);
-const codeTypes = ['上影线', '低吸', '突破', '其他'];
+const codeTypes = ['上影线', '低吸', '突破', '其他', '大成交'];
+const selfSources = ['自选', '前80'];
 
 // 编辑弹窗状态
 const showEditDialog = ref(false);
 const editRow = ref<StockMItem | null>(null);
 const editFlag = ref('');
 const editCodeType = ref('');
+const editSelfSource = ref('');
 const editSaving = ref(false);
 
 // 上传Excel弹窗状态
@@ -189,6 +221,8 @@ const uploadProgress = ref<number | null>(null);
 const uploadStatus = ref<string>('');
 const uploadMessage = ref('');
 const uploadSource = ref('ak');
+const uploadCodeType = ref('其他');
+const uploadSelfSource = ref('自选');
 
 /** 文件选择变化 */
 function handleFileChange(file: any) {
@@ -217,7 +251,7 @@ async function handleUploadExcel() {
   uploadStatus.value = '';
   uploadMessage.value = '正在导入...';
   try {
-    const res = await uploadStockMExcel(uploadFile.value, uploadCodeDate.value || undefined, uploadSource.value);
+    const res = await uploadStockMExcel(uploadFile.value, uploadCodeDate.value || undefined, uploadSource.value, uploadCodeType.value, uploadSelfSource.value);
     const taskId = res.data.data.task_id;
     uploadMessage.value = '任务已启动，等待完成...';
     // 轮询任务状态
@@ -299,6 +333,8 @@ async function fetchData() {
       code_date: (store.filterCodeDate && store.filterCodeDate !== 'latest' && store.filterCodeDate !== 'all') ? store.filterCodeDate : (store.filterCodeDate === 'all' ? 'all' : undefined),
       flag: store.filterFlag || undefined,
       code: store.filterCode || undefined,
+      code_type: store.filterCodeType || undefined,
+      self_source: store.filterSelfSource || undefined,
       sort_by: store.sortState.sort_by,
       sort_order: store.sortState.sort_order,
       page: store.pagination.page,
@@ -322,6 +358,8 @@ function resetFilter() {
   store.filterCodeDate = 'latest';
   store.filterFlag = null;
   store.filterCode = '';
+  store.filterCodeType = '其他';
+  store.filterSelfSource = '自选';
   store.sortState = { sort_by: 'date', sort_order: 'desc' };
   store.pagination.page = 1;
   fetchData();
@@ -344,6 +382,7 @@ function openEdit(row: StockMItem) {
   editRow.value = row;
   editFlag.value = row.flag;
   editCodeType.value = row.code_type;
+  editSelfSource.value = row.self_source;
   showEditDialog.value = true;
 }
 
@@ -355,14 +394,21 @@ async function saveEdit() {
     await updateStockM({
       code_date: editRow.value.code_date,
       code: editRow.value.code,
+      old_self_source: editRow.value.self_source,
       flag: editFlag.value,
       code_type: editCodeType.value,
+      self_source: editSelfSource.value || undefined,
     });
     // 更新本地数据
-    const idx = tableData.value.findIndex(r => r.code === editRow.value?.code && r.code_date === editRow.value?.code_date);
+    const idx = tableData.value.findIndex(r =>
+      r.code_date === editRow.value?.code_date &&
+      r.code === editRow.value?.code &&
+      r.self_source === editRow.value?.self_source
+    );
     if (idx !== -1) {
       tableData.value[idx].flag = editFlag.value;
       tableData.value[idx].code_type = editCodeType.value;
+      tableData.value[idx].self_source = editSelfSource.value;
     }
     showEditDialog.value = false;
     ElMessage.success('保存成功');
@@ -381,9 +427,9 @@ async function handleDelete(row: StockMItem) {
       cancelButtonText: '取消',
       type: 'warning',
     });
-    await deleteStockM(row.code_date, row.code);
+    await deleteStockM(row.code_date, row.code, row.self_source);
     tableData.value = tableData.value.filter(
-      (r) => !(r.code_date === row.code_date && r.code === row.code)
+      (r) => !(r.code_date === row.code_date && r.code === row.code && r.self_source === row.self_source)
     );
     store.pagination.total = Math.max(0, store.pagination.total - 1);
     ElMessage.success('已删除');

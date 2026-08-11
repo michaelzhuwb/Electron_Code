@@ -121,6 +121,8 @@ def get_stock_m(
     code_date: str = Query("", description="按日期筛选，空则取最新日期"),
     flag: str = Query("", description="按标签筛选"),
     code: str = Query("", description="按股票代码搜索"),
+    code_type: str = Query("", description="按形态筛选"),
+    self_source: str = Query("", description="按自选来源筛选"),
     sort_by: str = Query("date", description="排序字段: date|flag"),
     sort_order: str = Query("desc", description="排序方向: asc|desc"),
     page: int = Query(1, ge=1),
@@ -145,6 +147,10 @@ def get_stock_m(
         query = query.filter(Stock_M.flag == flag)
     if code:
         query = query.filter(Stock_M.code.like(f"%{code}%"))
+    if code_type:
+        query = query.filter(Stock_M.code_type == code_type)
+    if self_source:
+        query = query.filter(Stock_M.self_source == self_source)
 
     # 标签优先级映射：好+→1，好→2，好-→3，中+→4，中→5，中-→6，差→7
     flag_priority = case(
@@ -185,6 +191,7 @@ def get_stock_m(
             "extra_large_flow": r.extra_large_flow,
             "large_flow": r.large_flow,
             "code_type": r.code_type,
+            "self_source": r.self_source,
             "flag": r.flag,
         }
         for r in rows
@@ -203,6 +210,8 @@ async def upload_excel(
     file: UploadFile = File(..., description="Excel文件"),
     code_date: str = Query("", description="选股日期，空则用上一个交易日"),
     source: str = Query("ak", description="两融数据源: ak=akshare, dq=东方财富"),
+    code_type: str = Query("其他", description="形态: 上影线/低吸/突破/其他/大成交"),
+    self_source: str = Query("自选", description="自选来源: 自选/前80"),
 ):
     """
     读取 Excel 文件，第一列为股票代码。
@@ -297,6 +306,7 @@ async def upload_excel(
                     existing = db2.query(Stock_M).filter(
                         Stock_M.code_date == code_date,
                         Stock_M.code == code,
+                        Stock_M.self_source == self_source,
                     ).first()
 
                     data = {
@@ -308,7 +318,8 @@ async def upload_excel(
                         'major_flow': major_val,
                         'extra_large_flow': extra_val,
                         'large_flow': large_val,
-                        'code_type': '其他',
+                        'code_type': code_type,
+                        'self_source': self_source,
                         'flag': tag,
                     }
 
@@ -358,27 +369,38 @@ def get_upload_task_status(task_id: str):
     return {"code": 200, "data": task.to_dict(), "msg": "ok"}
 
 
-# PATCH /api/stock-m/update - 更新备选标的的标签和形态
-@router.patch("/update", summary="更新标签/形态")
+# PATCH /api/stock-m/update - 更新备选标的的标签、形态、自选来源
+@router.patch("/update", summary="更新标签/形态/自选来源")
 def update_stock_m(
-    code_date: str = Query(..., description="选股日期"),
-    code: str = Query(..., description="股票代码"),
+    code_date: str = Query(..., description="选股日期（原身份）"),
+    code: str = Query(..., description="股票代码（原身份）"),
+    old_self_source: str = Query(..., description="原来的自选来源（用于定位）"),
     flag: str = Query("", description="标签，留空则不更新"),
     code_type: str = Query("", description="形态，留空则不更新"),
+    self_source: str = Query("", description="新的自选来源，留空则保持原值"),
     db: Session = Depends(get_db),
 ):
     record = db.query(Stock_M).filter(
         Stock_M.code_date == code_date,
         Stock_M.code == code,
+        Stock_M.self_source == old_self_source,
     ).first()
     if not record:
         return {"code": 404, "data": None, "msg": "记录不存在"}
-    if flag is not None:
+    if flag is not None and flag != "":
         record.flag = flag
-    if code_type is not None:
+    if code_type is not None and code_type != "":
         record.code_type = code_type
+    if self_source is not None and self_source != "":
+        record.self_source = self_source
     db.commit()
-    return {"code": 200, "data": {"flag": record.flag, "code_type": record.code_type}, "msg": "更新成功"}
+    return {"code": 200, "data": {
+        "code_date": record.code_date,
+        "code": record.code,
+        "flag": record.flag,
+        "code_type": record.code_type,
+        "self_source": record.self_source,
+    }, "msg": "更新成功"}
 
 
 # POST /api/stock-m/save - 保存单条数据到备选标的（用于查询历史入库）
@@ -394,18 +416,20 @@ def save_to_stock_m(
     rq_margin_trading: str = Query("", description="融资净买入"),
     flag: str = Query("", description="标签"),
     code_type: str = Query("其他", description="形态"),
+    self_source: str = Query("自选", description="自选来源"),
     db: Session = Depends(get_db),
 ):
     existing = db.query(Stock_M).filter(
         Stock_M.code_date == code_date,
         Stock_M.code == code,
+        Stock_M.self_source == self_source,
     ).first()
     if existing:
         for key, value in {
             'code_date': code_date, 'code': code, 'name': name,
             'change_rate': change_rate, 'rq_margin_trading': rq_margin_trading,
             'major_flow': major_flow, 'extra_large_flow': extra_large_flow,
-            'large_flow': large_flow, 'code_type': code_type, 'flag': flag,
+            'large_flow': large_flow, 'code_type': code_type, 'self_source': self_source, 'flag': flag,
         }.items():
             setattr(existing, key, value)
         db.commit()
@@ -414,18 +438,19 @@ def save_to_stock_m(
         code_date=code_date, code=code, name=name,
         change_rate=change_rate, rq_margin_trading=rq_margin_trading,
         major_flow=major_flow, extra_large_flow=extra_large_flow,
-        large_flow=large_flow, code_type=code_type, flag=flag,
+        large_flow=large_flow, code_type=code_type, self_source=self_source, flag=flag,
     ))
     db.commit()
     return {"code": 200, "data": None, "msg": "已入库"}
 
 
-# DELETE /api/stock-m/{code_date}/{code} - 删除备选标的记录
-@router.delete("/{code_date}/{code}", summary="删除备选标的记录")
-def delete_stock_m(code_date: str, code: str, db: Session = Depends(get_db)):
+# DELETE /api/stock-m/{code_date}/{code}/{self_source} - 删除备选标的记录
+@router.delete("/{code_date}/{code}/{self_source}", summary="删除备选标的记录")
+def delete_stock_m(code_date: str, code: str, self_source: str, db: Session = Depends(get_db)):
     record = db.query(Stock_M).filter(
         Stock_M.code_date == code_date,
         Stock_M.code == code,
+        Stock_M.self_source == self_source,
     ).first()
     if not record:
         return {"code": 404, "data": None, "msg": "记录不存在"}

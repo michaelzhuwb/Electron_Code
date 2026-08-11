@@ -13,6 +13,7 @@ export interface StockMItem {
   extra_large_flow: string;   // 超大单净流入-净额
   large_flow: string;          // 大单净流入-净额
   code_type: string;            // 形态（上影线/低吸/突破/其他）
+  self_source: string;          // 自选来源（自选/前80）
   flag: string;                 // 标签
 }
 
@@ -26,6 +27,8 @@ export const getStockM = (params: {
   code_date?: string;
   flag?: string;
   code?: string;
+  code_type?: string;
+  self_source?: string;
   sort_by?: string;   // 排序字段：date | flag
   sort_order?: string; // 排序方向：asc | desc
   page: number;
@@ -49,12 +52,14 @@ export const getStockMTags = () => {
  * @param file Excel 文件
  * @param codeDate 选股日期，空则用当天
  */
-export const uploadStockMExcel = (file: File, codeDate?: string, source?: string) => {
+export const uploadStockMExcel = (file: File, codeDate?: string, source?: string, codeType?: string, selfSource?: string) => {
   const formData = new FormData();
   formData.append('file', file);
   const params: Record<string, string> = {};
   if (codeDate) params.code_date = codeDate;
   if (source) params.source = source;
+  if (codeType) params.code_type = codeType;
+  if (selfSource) params.self_source = selfSource;
   return request.post('/stock-m/upload', formData, {
     params,
     headers: { 'Content-Type': 'multipart/form-data' },
@@ -69,13 +74,16 @@ export const getUploadTaskStatus = (taskId: string) => {
 };
 
 /**
- * 更新备选标的的标签/形态
+ * 更新备选标的的标签/形态/自选来源
+ * 身份 = (code_date, code, old_self_source)，修改 self_source 时用 old 定位、传新值
  */
 export const updateStockM = (params: {
   code_date: string;
   code: string;
+  old_self_source: string;
   flag?: string;
   code_type?: string;
+  self_source?: string;
 }) => {
   return request.patch('/stock-m/update', null, { params });
 };
@@ -94,13 +102,14 @@ export const saveToStockM = (params: {
   rq_margin_trading?: string;
   flag?: string;
   code_type?: string;
+  self_source?: string;
 }) => {
   return request.post('/stock-m/save', null, { params });
 };
 
 /**
- * 删除备选标的记录
+ * 删除备选标的记录（按 code_date + code + self_source 定位）
  */
-export const deleteStockM = (code_date: string, code: string) => {
-  return request.delete(`/stock-m/${code_date}/${code}`);
+export const deleteStockM = (code_date: string, code: string, self_source: string) => {
+  return request.delete(`/stock-m/${code_date}/${code}/${self_source}`);
 };

@@ -7,6 +7,8 @@ export const useStockMStore = defineStore('stockM', () => {
   const filterCodeDate = ref('latest');
   const filterFlag = ref<string | null>(null);
   const filterCode = ref('');
+  const filterCodeType = ref('其他');
+  const filterSelfSource = ref('自选');
 
   // 排序状态
   const sortState = ref({
@@ -21,6 +23,8 @@ export const useStockMStore = defineStore('stockM', () => {
     filterCodeDate,
     filterFlag,
     filterCode,
+    filterCodeType,
+    filterSelfSource,
     sortState,
     pagination,
   };

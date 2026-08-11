@@ -20,6 +20,7 @@ class Stock(Base):
 
 
 # 备选标的模型，存储选股分析后的候选股票
+# 复合主键: (code_date, code, self_source)
 class Stock_M(Base):
     __tablename__ = 'stock_m'
 
@@ -32,6 +33,7 @@ class Stock_M(Base):
     extra_large_flow = Column(String(30), comment="超大单净流入-净额")
     large_flow = Column(String(30), comment="大单净流入-净额")
     code_type = Column(String(30), default="其他", comment="上影线/低吸/突破/其他")
+    self_source = Column(String(30), primary_key=True, default="自选", comment="自选来源: 自选/前80")
     flag = Column(String(20), comment="标签")
 
 
