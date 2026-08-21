@@ -94,8 +94,12 @@ def get_margin_flow(code='600000', m_date=None, source='ak'):
             head_titles.append(_th.text)
 
     data_tr = table.xpath('./tbody/tr')
-    result = [[_td.text.strip() for _td in _tr.xpath('./td')] 
-              for _tr in data_tr]
+    try:
+        result = [[_td.text.strip() for _td in _tr.xpath('./td')] 
+                for _tr in data_tr]
+    except Exception as e:
+        print(f"解析两融数据失败: {e}")
+        return name
     df = pd.DataFrame(data=result,columns=head_titles)
     df = df[(pd.notna(df['交易时间'])) & (df['交易时间'] != '')]
     df['交易时间'] = df['交易时间'].str.replace('-','',regex=False)

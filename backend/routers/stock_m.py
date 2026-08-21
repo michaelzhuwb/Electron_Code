@@ -229,12 +229,15 @@ async def upload_excel(
         df = pd.read_csv(BytesIO(content), sep="\t", encoding="gb2312")
     except Exception:
         try:
-            df = pd.read_csv(BytesIO(content), sep="\t", encoding="utf-8")
-        except Exception:
+            df = pd.read_csv(BytesIO(content), sep="\t", encoding="gb18030")
+        except:
             try:
-                df = pd.read_excel(BytesIO(content), engine="openpyxl")
+                df = pd.read_csv(BytesIO(content), sep="\t", encoding="utf-8")
             except Exception:
-                df = pd.read_excel(BytesIO(content), engine="xlrd")
+                try:
+                    df = pd.read_excel(BytesIO(content), engine="openpyxl")
+                except Exception:
+                    df = pd.read_excel(BytesIO(content), engine="xlrd")
     df.columns = df.columns.str.strip()
 
     # 识别代码列
@@ -332,6 +335,8 @@ async def upload_excel(
                         inserted += 1
                 except Exception as e:
                     print(f"处理代码 {code} 失败: {e}")
+                    import traceback
+                    traceback.print_exc()
                     failed += 1
 
                 # 更新进度
