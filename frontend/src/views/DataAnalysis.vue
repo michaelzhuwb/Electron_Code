@@ -63,7 +63,7 @@
                       placeholder="选择日期"
                       value-format="YYYY-MM-DD"
                       style="width: 160px; margin-right: 8px;"
-                      @change="loadMarketHistory"
+                      @change="onHistoryDateChange"
                     />
                     <el-button type="primary" link size="small" @click="clearHistoryDate">清除</el-button>
                     <el-button type="primary" link size="small" @click="loadMarketHistory">刷新</el-button>
@@ -77,7 +77,7 @@
                 stripe
                 border
                 size="small"
-                style="width: 100%"
+                max-height="560"
               >
                 <el-table-column prop="snapshot_time" label="采集时间" width="150" />
                 <el-table-column prop="ztzs" label="涨停数" width="75" align="center">
@@ -110,6 +110,17 @@
                 </el-table-column>
                 <el-table-column prop="suggestion" label="策略建议" min-width="160" show-overflow-tooltip />
               </el-table>
+              <div class="history-pagination">
+                <el-pagination
+                  v-model:current-page="historyPage"
+                  :page-size="historySize"
+                  :total="store.marketHistoryTotal"
+                  layout="total, prev, pager, next"
+                  background
+                  size="small"
+                  @current-change="loadMarketHistory"
+                />
+              </div>
             </el-card>
           </div>
         </div>
@@ -224,12 +235,14 @@ const savingRow = ref<string | null>(null);
 
 // 历史快照日期筛选
 const historyDate = ref('');
+const historyPage = ref(1);
+const historySize = 50;
 
 /** 加载市场概况历史快照 */
 async function loadMarketHistory() {
   store.marketHistoryLoading = true;
   try {
-    const params: any = { page: 1, size: 50 };
+    const params: any = { page: historyPage.value, size: historySize };
     if (historyDate.value) params.date = historyDate.value;
     const res = await getMarketOverviewHistory(params);
     store.marketHistory = res.data.data.data;
@@ -241,9 +254,16 @@ async function loadMarketHistory() {
   }
 }
 
+/** 切换日期筛选：重置到第一页后重新加载 */
+function onHistoryDateChange() {
+  historyPage.value = 1;
+  loadMarketHistory();
+}
+
 /** 清除历史快照日期筛选 */
 function clearHistoryDate() {
   historyDate.value = '';
+  historyPage.value = 1;
   loadMarketHistory();
 }
 
@@ -393,7 +413,8 @@ async function loadMarketOverview() {
     };
     store.marketSuggestion = d.suggestion ?? '';
 
-    // 市场概况刷新完成后，延迟同步更新历史快照
+    // 市场概况刷新完成后，延迟同步更新历史快照（回到第一页展示最新快照）
+    historyPage.value = 1;
     setTimeout(() => loadMarketHistory(), 1000);
   } catch {
     // 已由拦截器处理
